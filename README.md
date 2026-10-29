@@ -9,7 +9,7 @@ Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries
 - [x] Hourly output and capability for every generator of 20 MW or more
 - [x] DuckDB database
 - [x] **Goal 1:** outage detection (206 outages, announced refurbishments labelled)
-- [ ] **Goal 2:** replacement supply
+- [ ] **Goal 2:** replacement supply (in progress: Ontario's own generators done; imports/exports not yet)
 - [ ] **Goal 3:** price impact
 - [ ] **Goal 4:** CO2 impact
 - [ ] Front end (Streamlit web app)
@@ -20,6 +20,8 @@ Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries
 - 206 nuclear outages of 24+ hours; 13 are announced refurbishments or shutdowns
 - Getting back to full power takes 3–12 days after a refurbishment, and about 1.5 days after routine maintenance
 - Planned and forced outages look the same in hourly data: both drop from full power to 0 in about 2 hours
+- When nuclear runs ~840 MW below its monthly average, Ontario's other generators produce ~470 MW more than usual, mostly gas (+330 MW) ([08](queries/08_supply_vs_usual.sql))
+- Comparing across all months instead ([07](queries/07_supply_by_units_offline.sql)) makes wind/solar look like the main replacement, but that's mostly season and newer wind farms
 
 ## Run it
 
