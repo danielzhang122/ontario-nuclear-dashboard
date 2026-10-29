@@ -9,7 +9,8 @@ import duckdb
 
 ROOT = Path(__file__).resolve().parent.parent
 DB = ROOT / "data" / "nuclear.duckdb"
-PARQUET = (ROOT / "data" / "clean" / "*.parquet").as_posix()
+PARQUET = (ROOT / "data" / "clean" / "gen_*.parquet").as_posix()
+INTERTIES = (ROOT / "data" / "clean" / "interties_*.parquet").as_posix()
 
 
 def main():
@@ -20,8 +21,9 @@ def main():
         con.execute(f"""INSERT INTO generation
                         SELECT timestamp, generator_name, output_mw, capability_mw FROM '{PARQUET}'""")
         con.execute(f"INSERT INTO refurbishments SELECT * FROM '{(ROOT / 'reference' / 'refurbishments.csv').as_posix()}'")
+        con.execute(f"INSERT INTO interties SELECT * FROM '{INTERTIES}'")
         con.execute((ROOT / "queries" / "06_outages.sql").read_text())  # derived table, built from the ones above
-        for table in ["generators", "generation", "refurbishments", "outages"]:
+        for table in ["generators", "generation", "refurbishments", "interties", "outages"]:
             print(table, con.execute(f"SELECT count(*) FROM {table}").fetchone()[0], "rows")
 
 

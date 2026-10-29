@@ -1,8 +1,10 @@
-"""Download IESO's monthly Generator Output and Capability report and clean it into Parquet.
+"""Download IESO public reports and clean them into Parquet.
 
-Each month becomes data/clean/gen_YYYYMM.parquet with one row per generator per hour:
-timestamp, generator_name, plant, fuel_type, output_mw, capability_mw.
-Safe to rerun: downloaded months are cached and each Parquet file is overwritten, never appended.
+- Generator Output and Capability (monthly): data/clean/gen_YYYYMM.parquet, one row per generator per hour:
+  timestamp, generator_name, plant, fuel_type, output_mw, capability_mw.
+- Intertie Schedule and Flow (yearly): data/clean/interties_YYYY.parquet, one row per hour of Ontario totals:
+  timestamp, import_mw, export_mw, net_flow_mw.
+Safe to rerun: downloaded files are cached and each Parquet file is overwritten, never appended.
 """
 from pathlib import Path
 
@@ -13,6 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data" / "raw"
 CLEAN = ROOT / "data" / "clean"
 URL = "https://reports-public.ieso.ca/public/GenOutputCapabilityMonth/PUB_GenOutputCapabilityMonth_{}.csv"
+INTERTIE_URL = "https://reports-public.ieso.ca/public/IntertieScheduleFlowYear/PUB_IntertieScheduleFlowYear_{}.csv"
 START = pd.Period("2019-05", "M")  # first month IESO publishes in this format
 END = pd.Period.now("M") - 1  # latest complete month
 REFRESH = 2  # IESO keeps revising recent months, so always re-download the last few
@@ -20,14 +23,18 @@ HOURS = [f"Hour {h}" for h in range(1, 25)]
 PLANTS = {"BRUCE": "Bruce", "DARLINGTON": "Darlington", "PICKERING": "Pickering"}
 
 
-def download(month, force):
-    path = RAW / f"{month:%Y%m}.csv"
+def download(url, path, force):
     if force or not path.exists():
-        r = requests.get(URL.format(f"{month:%Y%m}"), timeout=60)
+        r = requests.get(url, timeout=60)
         r.raise_for_status()
         path.write_bytes(r.content)
-        print(f"downloaded {month}")
+        print(f"downloaded {path.name}")
     return path
+
+
+def hour_to_ts(dates, hours):
+    # IESO "Hour 1" is 00:00-01:00 Eastern Standard Time all year (no daylight saving), so timestamps stay naive
+    return pd.to_datetime(dates) + pd.to_timedelta(hours.astype(int) - 1, unit="h")
 
 
 def clean(path):
@@ -38,8 +45,7 @@ def clean(path):
     df = df[df["Measurement"].isin(["Output", "Capability"])]
     long = df.melt(id_vars=["Delivery Date", "Generator", "Fuel Type", "Measurement"], value_vars=HOURS,
                    var_name="hour", value_name="mw")
-    # "Hour 1" is 00:00-01:00; IESO uses Eastern Standard Time all year (no daylight saving), so timestamps stay naive
-    long["timestamp"] = pd.to_datetime(long["Delivery Date"]) + pd.to_timedelta(long["hour"].str[5:].astype(int) - 1, unit="h")
+    long["timestamp"] = hour_to_ts(long["Delivery Date"], long["hour"].str[5:])
     out = long.pivot(index=["timestamp", "Generator", "Fuel Type"], columns="Measurement", values="mw").reset_index()
     out.columns.name = None
     out = out.rename(columns={"Generator": "generator_name", "Fuel Type": "fuel_type",
@@ -47,6 +53,20 @@ def clean(path):
     nuclear = out["fuel_type"] == "NUCLEAR"
     out["plant"] = out["generator_name"].str.extract(f"^({'|'.join(PLANTS)})", expand=False).map(PLANTS).where(nuclear)
     return out[["timestamp", "generator_name", "plant", "fuel_type", "output_mw", "capability_mw"]]
+
+
+def clean_interties(path):
+    # 3 metadata lines, then a row of intertie names (each repeated over its Imp/Exp/Flow columns), then the header
+    names = path.read_text().splitlines()[3].rstrip(",").split(",")
+    assert names[-3:] == ["Total"] * 3, f"{path.name}: last column group is not Total, layout changed"
+    df = pd.read_csv(path, skiprows=5, header=None, na_values=[" "]).iloc[:, :len(names)]
+    return pd.DataFrame({"timestamp": hour_to_ts(df[0], df[1]),
+                         "import_mw": df.iloc[:, -3], "export_mw": df.iloc[:, -2], "net_flow_mw": df.iloc[:, -1]})
+
+
+def check_interties(df):
+    assert not df["timestamp"].duplicated().any(), "duplicate intertie hours"
+    print(f"interties: {len(df):,} hours, {df['timestamp'].min()} to {df['timestamp'].max()}")
 
 
 def check(df):
@@ -62,9 +82,15 @@ def main():
     RAW.mkdir(parents=True, exist_ok=True)
     CLEAN.mkdir(parents=True, exist_ok=True)
     for month in pd.period_range(START, END, freq="M"):
-        raw = download(month, force=month > END - REFRESH)
+        raw = download(URL.format(f"{month:%Y%m}"), RAW / f"{month:%Y%m}.csv", force=month > END - REFRESH)
         clean(raw).to_parquet(CLEAN / f"gen_{month:%Y%m}.parquet", index=False)
-    check(pd.read_parquet(CLEAN))
+    check(pd.concat(map(pd.read_parquet, sorted(CLEAN.glob("gen_*.parquet")))))
+
+    for year in range(START.year, END.year + 1):
+        # the current year's file grows daily; last year's may still be revised early in the year
+        raw = download(INTERTIE_URL.format(year), RAW / f"interties_{year}.csv", force=year >= END.year - 1)
+        clean_interties(raw).to_parquet(CLEAN / f"interties_{year}.parquet", index=False)
+    check_interties(pd.concat(map(pd.read_parquet, sorted(CLEAN.glob("interties_*.parquet")))))
 
 
 if __name__ == "__main__":
