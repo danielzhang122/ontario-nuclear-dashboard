@@ -29,7 +29,13 @@ Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries
 Hourly output and capability can be used to work backwards to what each reactor was doing, with some assumptions: forced shutdowns, ramping back up to full power, or running at reduced power.
 
 - **Ramp-up after an outage:** done. `ramp_up_h` in the `outages` table is the time back to 90% of full power.
-- **Forced vs. planned shutdowns:** tried, but it doesn't work in hourly data, since planned shutdowns also drop to 0 in about 2 hours.
+- **Forced vs. planned shutdowns:** the drop shape alone isn't enough (planned shutdowns also drop to 0 in about 2 hours), so the plan is to combine other signals:
+  1. **Capability vs. output timing.** Hypothesis: in planned outages, capability drops at or before output. In forced outages, capability may stay up for an hour or more after output collapses. To be tested on the data first.
+  2. **Duration and season.** Look for clusters in outage length and month. Planned work is usually scheduled for spring/fall.
+  3. **Multi-unit events.** Flag outages where several units at the same station went down within a few hours of each other.
+  4. **External labels.** A `known_outages` table built only from sourced public records (OPG and Bruce Power releases and reports, refurbishment timelines, IESO reliability outlooks).
+
+  Each outage will be labelled **planned**, **likely forced** or **unknown**, with a confidence level and the reasons. Sourced matches take priority. "Likely forced" means inferred from the data, not confirmed.
 - **Running at reduced power without shutting down** (e.g. Bruce cutting output on windy, low-demand nights): not done yet.
 
 ## Run it
