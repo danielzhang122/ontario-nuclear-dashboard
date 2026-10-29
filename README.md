@@ -23,6 +23,14 @@ Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries
 - When nuclear runs ~840 MW below its monthly average, Ontario's other generators produce ~470 MW more than usual, mostly gas (+330 MW) ([08](queries/08_supply_vs_usual.sql))
 - Comparing across all months instead ([07](queries/07_supply_by_units_offline.sql)) makes wind/solar look like the main replacement, but that's mostly season and newer wind farms
 
+## Idea: reading reactor manoeuvres from the data
+
+Hourly output and capability can be used to work backwards to what each reactor was doing, with some assumptions: forced shutdowns, ramping back up to full power, or running at reduced power.
+
+- **Ramp-up after an outage:** done. `ramp_up_h` in the `outages` table is the time back to 90% of full power.
+- **Forced vs. planned shutdowns:** tried, but it doesn't work in hourly data, since planned shutdowns also drop to 0 in about 2 hours.
+- **Running at reduced power without shutting down** (e.g. Bruce cutting output on windy, low-demand nights): not done yet.
+
 ## Run it
 
 ```
