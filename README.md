@@ -6,6 +6,24 @@ Hourly IESO data (May 2019 →) on every Ontario nuclear outage: what filled the
 
 Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries/) runs from basic `SELECT` up to window functions.
 
+## What makes this project different
+
+[Gridwatch](https://live.gridwatch.ca/) shows what Ontario's grid is producing right now, by fuel type and plant. This project looks at what reactors did over time, and why.
+
+**Built:**
+- **Historical, not live:** years of hourly data instead of a current snapshot
+- **Outage detection:** automatically finds every period a nuclear unit went offline and stores it in an `outages` table, with start, end and duration
+- **Ramp-up analysis:** measures how long each unit took to get back to 90% of full power after an outage (`ramp_up_h`)
+- **What filled the gap (partly):** shows which of Ontario's own sources (gas, hydro, wind/solar) ramped up when nuclear output dropped. Imports are next.
+
+**In progress / next steps:**
+- **Outage classification:** label outages as planned, likely forced, or unknown, combining capability data, duration, multi-unit patterns and public outage records
+- **Reduced-power detection:** spot units running below full power without shutting down, like Bruce cutting output on windy, low-demand nights
+- **Price and emissions impact:** whether outages raised market prices, and how much extra CO2 came from gas
+- **Findings, not just charts:** conclusions you can state, like "this outage added roughly X tonnes of CO2", rather than a live graph
+
+Throughout, it documents what hourly data can't tell you, and marks inferred events as inferred.
+
 ## Status
 
 - [x] Hourly output and capability for every generator of 20 MW or more
