@@ -12,8 +12,8 @@ Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries
 - [ ] **Goal 2:** replacement supply
 - [ ] **Goal 3:** price impact
 - [ ] **Goal 4:** CO2 impact
-- [ ] Dashboard
-- [ ] Stretch: plain-English questions → SQL
+- [ ] Front end (Streamlit web app)
+- [ ] Stretch: plain-English questions → SQL, in the front end
 
 ## Findings so far
 
