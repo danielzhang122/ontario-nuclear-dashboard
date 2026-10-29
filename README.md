@@ -12,6 +12,7 @@ Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries
 - [ ] **Goal 2:** replacement supply (in progress: Ontario's own generators done; imports/exports not yet)
 - [ ] **Goal 3:** price impact
 - [ ] **Goal 4:** CO2 impact
+- [ ] **Goal 5:** reactor manoeuvres (in progress: ramp-up time done)
 - [ ] Front end (Streamlit web app)
 - [ ] Stretch: plain-English questions → SQL, in the front end
 
@@ -23,7 +24,7 @@ Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries
 - When nuclear runs ~840 MW below its monthly average, Ontario's other generators produce ~470 MW more than usual, mostly gas (+330 MW) ([08](queries/08_supply_vs_usual.sql))
 - Comparing across all months instead ([07](queries/07_supply_by_units_offline.sql)) makes wind/solar look like the main replacement, but that's mostly season and newer wind farms
 
-## Idea: reading reactor manoeuvres from the data
+## Goal 5: reading reactor manoeuvres from the data
 
 Hourly output and capability can be used to work backwards to what each reactor was doing, with some assumptions: forced shutdowns, ramping back up to full power, or running at reduced power.
 
