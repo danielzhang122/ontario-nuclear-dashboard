@@ -79,6 +79,7 @@ FROM grouped
 GROUP BY gap
 ORDER BY min(units_off);
 
--- if your dumb like i am, essentially this query asks -> how do other reactors compensate when there are outages.
---this however isnt a perfect model, correlation =/ causation. 
---rise in wind and solar can be due to seasons. this will be corrected in query 8.
+-- In short: how do non-nuclear sources change when more nuclear units are offline?
+-- This shows correlation, not causation. Big-gap hours fall mostly in spring/fall (windier, lower demand)
+-- and in 2022-2026 (more wind/solar built), so part of the rise in wind/solar, and possibly gas,
+-- comes from season and year, not from the outages. Query 08 corrects for this.
