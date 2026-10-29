@@ -14,7 +14,7 @@ Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries
 - **Historical, not live:** years of hourly data instead of a current snapshot
 - **Outage detection:** automatically finds every period a nuclear unit went offline and stores it in an `outages` table, with start, end and duration
 - **Ramp-up analysis:** measures how long each unit took to get back to 90% of full power after an outage (`ramp_up_h`)
-- **What filled the gap (partly):** shows which of Ontario's own sources (gas, hydro, wind/solar) ramped up when nuclear output dropped. Imports are next.
+- **What filled the gap:** shows which sources (gas, hydro, wind/solar, imports) ramped up when nuclear output dropped, overall and for each major outage
 
 **In progress / next steps:**
 - **Outage classification:** label outages as planned, likely forced, or unknown, combining capability data, duration, multi-unit patterns and public outage records
@@ -29,7 +29,7 @@ Throughout, it documents what hourly data can't tell you, and marks inferred eve
 - [x] Hourly output and capability for every generator of 20 MW or more
 - [x] DuckDB database
 - [x] **Goal 1:** outage detection (206 outages, announced refurbishments labelled)
-- [ ] **Goal 2:** replacement supply (in progress: Ontario's own generators done; imports/exports not yet)
+- [x] **Goal 2:** replacement supply, overall ([09](queries/09_supply_vs_usual_with_imports.sql)) and per outage ([10](queries/10_what_filled_the_gap_per_outage.sql)); Goals 3–4 build on 10
 - [ ] **Goal 3:** price impact
 - [ ] **Goal 4:** CO2 impact
 - [ ] **Goal 5:** reactor manoeuvres (in progress: ramp-up time done)
@@ -43,6 +43,8 @@ Throughout, it documents what hourly data can't tell you, and marks inferred eve
 - Planned and forced outages look the same in hourly data: both drop from full power to 0 in about 2 hours
 - When nuclear runs ~840 MW below its monthly average, Ontario's other generators produce ~470 MW more than usual, mostly gas (+330 MW) ([08](queries/08_supply_vs_usual.sql))
 - Comparing across all months instead ([07](queries/07_supply_by_units_offline.sql)) makes wind/solar look like the main replacement, but that's mostly season and newer wind farms
+- With imports included ([09](queries/09_supply_vs_usual_with_imports.sql)), the whole ~840 MW drop is accounted for: ~470 MW from other Ontario generators, ~310 MW more net imports (mostly Ontario exporting less), ~55 MW lower demand
+- Example outage ([10](queries/10_what_filled_the_gap_per_outage.sql)): when Darlington 4 went offline for refurbishment in July 2023 (~870 MW), net imports rose ~890 MW and gas ~420 MW in the first two weeks. Other reactors and hydro were also lower, so the sources don't simply add up to the 870 MW.
 
 ## Goal 5: reading reactor manoeuvres from the data
 
@@ -78,9 +80,13 @@ The DuckDB CLI (`winget install DuckDB.cli`) must be the same version as `duckdb
 | `generators` | 193 | unit, fuel type, plant |
 | `generation` | 11.8M | output and capability per unit per hour |
 | `refurbishments` | 13 | announced refurbishments/shutdowns, with sources ([reference/](reference/refurbishments.csv)) |
+| `interties` | 68.6k | Ontario's total imports, exports and net flow per hour |
 | `outages` | 206 | detected outages, built by [06_outages.sql](queries/06_outages.sql) |
+
+**Interties** are the high-voltage power lines that connect Ontario's grid to its neighbours: Quebec, New York, Michigan, Manitoba and Minnesota (14 lines in total). Power can flow across them in either direction. Ontario **imports** when it needs more than it generates, and **exports** when it has extra. In `net_flow_mw`, positive means Ontario exported more than it imported that hour.
 
 ## Data
 
 - [IESO Generator Output and Capability](https://reports-public.ieso.ca/public/GenOutputCapabilityMonth/): generators of 20 MW or more; small local generators like rooftop solar aren't included
+- [IESO Intertie Schedule and Flow](https://reports-public.ieso.ca/public/IntertieScheduleFlowYear/): hourly imports and exports, 2019 →
 - Refurbishment dates: OPG, Bruce Power and news sources, linked per row
