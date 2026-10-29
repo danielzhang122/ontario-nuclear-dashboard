@@ -22,6 +22,7 @@ python scripts/build_db.py
 |---|---|---|
 | `generators` | 193, one per unit | `generator_name` (key), `fuel_type`, `plant` |
 | `generation` | ~11.8M, one per unit per hour | `timestamp`, `generator_name`, `output_mw`, `capability_mw` |
+| `refurbishments` | 13, hand-collected in [reference/refurbishments.csv](reference/refurbishments.csv) with a source URL per row | `generator_name`, `kind`, `start_date`, `end_date`, `source`, `note` |
 
 ## Query the database
 

@@ -14,3 +14,14 @@ CREATE TABLE generation (
     output_mw      DOUBLE,               -- energy delivered that hour (MW averaged over the hour = MWh)
     capability_mw  DOUBLE                -- what the unit could produce; NULL for wind/solar
 );
+
+-- Announced refurbishments and permanent shutdowns, hand-collected in reference/refurbishments.csv.
+-- Used to label detected outages; dates are as precise as the public source (often month only).
+CREATE TABLE refurbishments (
+    generator_name VARCHAR NOT NULL,
+    kind           VARCHAR NOT NULL,     -- 'refurbishment' or 'permanent_shutdown'
+    start_date     DATE NOT NULL,
+    end_date       DATE,                 -- NULL = still offline
+    source         VARCHAR NOT NULL,     -- URL of the announcement
+    note           VARCHAR
+);
