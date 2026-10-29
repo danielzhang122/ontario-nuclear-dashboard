@@ -1,5 +1,7 @@
 # What happens to Ontario's grid when a nuclear reactor goes offline?
 
+I've spent 10+ months as an intern at Eclipse, an automation company, helping build tooling for the Pickering Nuclear refurbishment, one of the largest infrastructure projects in Canada. That got me curious about how the work I do affects the way electricity is supplied across Ontario. So I did what any rational person would do: I learned SQL and data analytics to find out.
+
 Hourly IESO data (May 2019 →) on every Ontario nuclear outage: what filled the gap, what happened to prices, and how much extra CO2 was emitted.
 
 Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries/) runs from basic `SELECT` up to window functions.
