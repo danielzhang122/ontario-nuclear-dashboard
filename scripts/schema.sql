@@ -26,5 +26,13 @@ CREATE TABLE refurbishments (
     note           VARCHAR
 );
 
+-- One row per hour: Ontario's total trade with neighbouring grids (sum over all 14 interties).
+CREATE TABLE interties (
+    timestamp      TIMESTAMP PRIMARY KEY,  -- start of the hour, Eastern Standard Time
+    import_mw      DOUBLE,                 -- scheduled imports into Ontario
+    export_mw      DOUBLE,                 -- scheduled exports out of Ontario
+    net_flow_mw    DOUBLE                  -- metered net flow; POSITIVE = Ontario is a net exporter that hour
+);
+
 -- The outages table is derived from the tables above: it is created by queries/06_outages.sql,
 -- which build_db.py runs after loading the data.
