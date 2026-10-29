@@ -19,7 +19,8 @@ def main():
         con.execute(f"INSERT INTO generators SELECT DISTINCT generator_name, fuel_type, plant FROM '{PARQUET}'")
         con.execute(f"""INSERT INTO generation
                         SELECT timestamp, generator_name, output_mw, capability_mw FROM '{PARQUET}'""")
-        for table in ["generators", "generation"]:
+        con.execute(f"INSERT INTO refurbishments SELECT * FROM '{(ROOT / 'reference' / 'refurbishments.csv').as_posix()}'")
+        for table in ["generators", "generation", "refurbishments"]:
             print(table, con.execute(f"SELECT count(*) FROM {table}").fetchone()[0], "rows")
 
 
