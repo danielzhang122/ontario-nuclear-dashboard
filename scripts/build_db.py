@@ -20,7 +20,8 @@ def main():
         con.execute(f"""INSERT INTO generation
                         SELECT timestamp, generator_name, output_mw, capability_mw FROM '{PARQUET}'""")
         con.execute(f"INSERT INTO refurbishments SELECT * FROM '{(ROOT / 'reference' / 'refurbishments.csv').as_posix()}'")
-        for table in ["generators", "generation", "refurbishments"]:
+        con.execute((ROOT / "queries" / "06_outages.sql").read_text())  # derived table, built from the ones above
+        for table in ["generators", "generation", "refurbishments", "outages"]:
             print(table, con.execute(f"SELECT count(*) FROM {table}").fetchone()[0], "rows")
 
 

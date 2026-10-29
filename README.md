@@ -1,42 +1,49 @@
-# Ontario Nuclear Generation Dashboard
+# What happens to Ontario's grid when a nuclear reactor goes offline?
 
-Hourly output from Ontario's nuclear plants (Bruce, Darlington, Pickering) since May 2019, using public IESO data. It's analyzed with SQL in DuckDB and shown in a Streamlit dashboard.
+Hourly IESO data (May 2019 →) on every Ontario nuclear outage: what filled the gap, what happened to prices, and how much extra CO2 was emitted.
 
-This is a work in progress.
+Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries/) runs from basic `SELECT` up to window functions.
 
-## Reproduce
+## Status
+
+- [x] Hourly output and capability for every generator of 20 MW or more
+- [x] DuckDB database
+- [x] **Goal 1:** outage detection (206 outages, announced refurbishments labelled)
+- [ ] **Goal 2:** replacement supply
+- [ ] **Goal 3:** price impact
+- [ ] **Goal 4:** CO2 impact
+- [ ] Front end (Streamlit web app)
+- [ ] Stretch: plain-English questions → SQL, in the front end
+
+## Findings so far
+
+- 206 nuclear outages of 24+ hours; 13 are announced refurbishments or shutdowns
+- Getting back to full power takes 3–12 days after a refurbishment, and about 1.5 days after routine maintenance
+- Planned and forced outages look the same in hourly data: both drop from full power to 0 in about 2 hours
+
+## Run it
 
 ```
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-python scripts/ingest.py
-python scripts/build_db.py
-```
-
-`ingest.py` downloads IESO's monthly [Generator Output and Capability](https://reports-public.ieso.ca/public/GenOutputCapabilityMonth/) CSVs into `data/raw/`. It cleans them into `data/clean/gen_YYYYMM.parquet`, with one row per generator per hour. It's safe to rerun.
-
-`build_db.py` rebuilds `data/nuclear.duckdb` from those files, using the tables in [scripts/schema.sql](scripts/schema.sql):
-
-| Table | Rows | Columns |
-|---|---|---|
-| `generators` | 193, one per unit | `generator_name` (key), `fuel_type`, `plant` |
-| `generation` | ~11.8M, one per unit per hour | `timestamp`, `generator_name`, `output_mw`, `capability_mw` |
-| `refurbishments` | 13, hand-collected in [reference/refurbishments.csv](reference/refurbishments.csv) with a source URL per row | `generator_name`, `kind`, `start_date`, `end_date`, `source`, `note` |
-
-## Query the database
-
-The DuckDB CLI is installed with `winget install DuckDB.cli`; its version must match the `duckdb` package in requirements.txt. Open the database with:
-
-```
+python scripts/ingest.py      # download + clean IESO data
+python scripts/build_db.py    # build data/nuclear.duckdb
 duckdb -readonly data/nuclear.duckdb
 ```
 
-From Python:
+The DuckDB CLI (`winget install DuckDB.cli`) must be the same version as `duckdb` in requirements.txt.
 
-```python
-import duckdb
-con = duckdb.connect("data/nuclear.duckdb", read_only=True)
-con.sql("SELECT * FROM generators LIMIT 5").show()
-df = con.sql("SELECT ...").df()   # as a pandas DataFrame
-```
+## Tables
+
+| Table | Rows | Contents |
+|---|---|---|
+| `generators` | 193 | unit, fuel type, plant |
+| `generation` | 11.8M | output and capability per unit per hour |
+| `refurbishments` | 13 | announced refurbishments/shutdowns, with sources ([reference/](reference/refurbishments.csv)) |
+| `outages` | 206 | detected outages, built by [06_outages.sql](queries/06_outages.sql) |
+
+## Data
+
+- [IESO Generator Output and Capability](https://reports-public.ieso.ca/public/GenOutputCapabilityMonth/): generators of 20 MW or more; small local generators like rooftop solar aren't included
+- Refurbishment dates: OPG, Bruce Power and news sources, linked per row

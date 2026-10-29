@@ -25,3 +25,6 @@ CREATE TABLE refurbishments (
     source         VARCHAR NOT NULL,     -- URL of the announcement
     note           VARCHAR
 );
+
+-- The outages table is derived from the tables above: it is created by queries/06_outages.sql,
+-- which build_db.py runs after loading the data.
