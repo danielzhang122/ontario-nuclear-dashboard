@@ -36,6 +36,7 @@
 -- Limit: weather changes within a month (a windy week, a heat wave) still add noise,
 -- but averaging across 89 months shrinks it.
 --
+-- added the pseudocode for my understanding. this will eventually go in a .md file
 
 -- STEP 1: how much each power source produced in each hour (same as 07 step 2)
 WITH fuel_hourly AS (
@@ -105,3 +106,15 @@ ORDER BY avg(d_nuclear) DESC;
 -- leaked into the result. 08 compares each hour to its own month, which cancels that out.
 -- 07 also counted every offline reactor the same, but a Darlington unit (~880 MW) leaves a bigger gap
 -- than a Pickering unit (~515 MW). measuring the gap in MW fixes that, and also catches units running at reduced power.
+
+
+-- how it works, in plain words:
+--   1. for each month, they work out nuclear's average hourly output
+--      (for example, the average MW per hour in July 2023).
+--   2. then they take each specific hour's output and compare it with that month's average hourly output.
+--      that gives the hour's difference.
+--   3. they do that for every single hour since 2019.
+--   4. they sort the hours into −500 or lower, −500 to 500, and 500+, then average those differences.
+--   5. then they look at the same hours (without re-sorting them), do the same comparison
+--      for each of the other sources (each hour vs. that source's average hourly output for the month),
+--      and average that as well.
