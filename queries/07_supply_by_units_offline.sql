@@ -80,6 +80,8 @@ GROUP BY gap
 ORDER BY min(units_off);
 
 -- In short: how do non-nuclear sources change when more nuclear units are offline?
--- This shows correlation, not causation. Big-gap hours fall mostly in spring/fall (windier, lower demand)
+-- The short answer is: partly. From small to big gap, nuclear falls ~2,400 MW and non-nuclear sources
+-- (gas, hydro, wind/solar) rise ~1,360 MW. The other ~1,000 MW isn't measured here: it's imports/exports or lower demand.
+-- The long answer is: This shows correlation, not causation. Big-gap hours fall mostly in spring/fall (windier, lower demand)
 -- and in 2022-2026 (more wind/solar built), so part of the rise in wind/solar, and possibly gas,
 -- comes from season and year, not from the outages. Query 08 corrects for this.
