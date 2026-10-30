@@ -33,8 +33,8 @@ Throughout, it documents what hourly data can't tell you, and marks inferred eve
 - [ ] **Goal 3:** price impact
 - [ ] **Goal 4:** CO2 impact
 - [ ] **Goal 5:** reactor manoeuvres (in progress: ramp-up time done)
-- [ ] Front end (Streamlit web app)
-- [ ] **Goal 6:** automatic daily data updates with a scheduled job, e.g. GitHub Actions (optional, after the front end is online)
+- [ ] **Goal 6:** front end (Streamlit web app)
+- [ ] **Goal 7 (tentative):** automatic daily data updates with a scheduled job, e.g. GitHub Actions (after the front end is online)
 - [ ] Stretch: plain-English questions → SQL, in the front end
 
 ## Findings so far
