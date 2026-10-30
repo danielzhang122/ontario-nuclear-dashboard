@@ -4,7 +4,12 @@ I've spent 10+ months as an intern at Eclipse Automation, helping build tooling 
 
 This project uses hourly IESO data (May 2019 →) to look at every Ontario nuclear outage: what filled the gap, what happened to prices, and how much extra CO2 was emitted.
 
-Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries/) runs from basic `SELECT` up to window functions.
+**Live dashboard: [nuclear-dashboard.streamlit.app](https://nuclear-dashboard.streamlit.app/)** (if it's been idle, Streamlit takes a moment to wake it up)
+
+Built with SQL (DuckDB), Python and Streamlit. I'm learning SQL as I go; [queries/](queries/) runs from basic `SELECT` up to window functions.
+
+![Daily energy by plant, all nuclear and all Ontario power plants](docs/dashboard-generation.png)
+![What replaces the missing nuclear power, and how it adds up](docs/dashboard-gap.png)
 
 ## What makes this project different
 
@@ -15,12 +20,13 @@ Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries
 - **Outage detection:** automatically finds every period a nuclear unit went offline and stores it in an `outages` table, with start, end and duration
 - **Ramp-up analysis:** measures how long each unit took to get back to 90% of full power after an outage (`ramp_up_h`)
 - **What filled the gap:** shows which sources (gas, hydro, wind/solar, imports) ramped up when nuclear output dropped, overall and for each major outage
+- **Price and emissions impact:** whether outages raised market prices, and how much extra CO2 came from gas
+- **Findings, not just charts:** conclusions you can state, like "Darlington 4's refurbishment added ~64,000 t of CO2 in its first two weeks"
+- **A dashboard that explains itself:** every chart says what it shows, in units, for someone who's never heard of a megawatt
 
 **In progress / next steps:**
 - **Outage classification:** label outages as planned, likely forced, or unknown, combining capability data, duration, multi-unit patterns and public outage records
 - **Reduced-power detection:** spot units running below full power without shutting down, like Bruce cutting output on windy, low-demand nights
-- **Price and emissions impact:** whether outages raised market prices, and how much extra CO2 came from gas
-- **Findings, not just charts:** conclusions you can state, like "this outage added roughly X tonnes of CO2", rather than a live graph
 
 Throughout, it documents what hourly data can't tell you, and marks inferred events as inferred.
 
@@ -33,8 +39,8 @@ Throughout, it documents what hourly data can't tell you, and marks inferred eve
 - [x] **Goal 3:** price impact, overall ([11](queries/11_price_vs_usual.sql)) and per outage ([12](queries/12_price_per_outage.sql))
 - [x] **Goal 4:** CO2 impact, overall ([13](queries/13_co2_vs_usual.sql)) and per outage ([14](queries/14_co2_per_outage.sql)); the emissions factor is in [reference/assumptions.csv](reference/assumptions.csv)
 - [ ] **Goal 5:** reactor manoeuvres (in progress: ramp-up time done)
-- [ ] **Goal 6:** front end (Streamlit web app, in progress: [app.py](app.py) has the outage explorer and the energy, price and CO2 findings)
-- [ ] **Goal 7 (tentative):** automatic daily data updates with a scheduled job, e.g. GitHub Actions (after the front end is online)
+- [x] **Goal 6:** front end: [Streamlit app](https://nuclear-dashboard.streamlit.app/) ([app.py](app.py)), see [The dashboard](#the-dashboard)
+- [ ] **Goal 7 (tentative):** automatic daily data updates with a scheduled job, e.g. GitHub Actions
 - [ ] Stretch: plain-English questions → SQL, in the front end
 
 ## Findings so far
@@ -45,7 +51,7 @@ Throughout, it documents what hourly data can't tell you, and marks inferred eve
 - When nuclear runs ~840 MW below its monthly average, Ontario's other generators produce ~470 MW more than usual, mostly gas (+330 MW) ([08](queries/08_supply_vs_usual.sql))
 - Comparing across all months instead ([07](queries/07_supply_by_units_offline.sql)) makes wind/solar look like the main replacement, but that's mostly season and newer wind farms
 - With imports included ([09](queries/09_supply_vs_usual_with_imports.sql)), the whole ~840 MW drop is accounted for: ~470 MW from other Ontario generators, ~310 MW more net imports (mostly Ontario exporting less), ~55 MW lower demand
-- Example outage ([10](queries/10_what_filled_the_gap_per_outage.sql)): when Darlington 4 went offline for refurbishment in July 2023 (~870 MW), net imports rose ~890 MW and gas ~420 MW in the first two weeks. Other reactors and hydro were also lower, so the sources don't simply add up to the 870 MW.
+- Example outage ([10](queries/10_what_filled_the_gap_per_outage.sql)): when Darlington 4 went offline for refurbishment in July 2023 (~870 MW), net imports rose ~890 MW and gas ~420 MW in the first two weeks. Other reactors and hydro were also lower, so imports and gas covered more than the 870 MW; with every source and demand included, the changes add up to the power lost (within 2 MW for all 97 measured outages).
 - **Prices rise when nuclear is down** ([11](queries/11_price_vs_usual.sql)): when nuclear capability is ~840 MW below its monthly average, the wholesale price (HOEP) is ~$4/MWh above usual for that month, about 15%. It still holds with price spikes removed.
 - Per outage ([12](queries/12_price_per_outage.sql)): the price rose after 51 of 81 outages, by +$3.94/MWh on average, and Ontario's import/export bill got ~$88,000/day worse. The new market only has 2 outages with price data so far.
 - **Extra CO2** ([13](queries/13_co2_vs_usual.sql)): when nuclear is ~830 MW below its monthly average, gas runs ~320 MW higher, which emits ~145 extra tonnes of CO2 per hour (129–177 depending on the emissions factor), or ~3,500 t/day
@@ -64,6 +70,19 @@ Goals 1–4 ask the standard questions: when did reactors go offline, what repla
 
   Each outage will be labelled **planned**, **likely forced** or **unknown**, with a confidence level and the reasons. Sourced matches take priority. "Likely forced" means inferred from the data, not confirmed.
 - **Running at reduced power without shutting down** (e.g. Bruce cutting output on windy, low-demand nights): not done yet.
+
+## The dashboard
+
+[nuclear-dashboard.streamlit.app](https://nuclear-dashboard.streamlit.app/), built from [app.py](app.py). It runs the SQL files in [queries/](queries/) directly, so the page always matches the queries.
+
+- **Nuclear generation over time:** daily energy (GWh) from each plant, all nuclear and every Ontario power plant, with a date slider and toggles for each line
+- **All outages:** the `outages` table, with a tooltip on every column
+- **Outage explorer:** pick an outage to see that reactor's output vs. capability around it, the ramp-up time, and what it did to the grid: power lost, price change and extra CO2 in its first 14 days, plus a chart of what filled the gap ([10](queries/10_what_filled_the_gap_per_outage.sql), [12](queries/12_price_per_outage.sql), [14](queries/14_co2_per_outage.sql)). Outages that can't be measured say why.
+- **Findings across every hour:** the energy, price and CO2 findings ([09](queries/09_supply_vs_usual_with_imports.sql), [11](queries/11_price_vs_usual.sql), [13](queries/13_co2_vs_usual.sql)), each with a "how to read this" box
+- Light and dark mode (menu at the top right → Settings), styled after [zhangdz.ca](https://zhangdz.ca)
+
+The database isn't in git (it's over GitHub's 100 MB limit). The cleaned data in `data/clean/` is, and the app builds `data/nuclear.duckdb` from it on first start (~15 s). That's how the hosted app gets its data.
+
 ## Run it
 
 Works on Linux, macOS and Windows (Python 3.13).
@@ -77,6 +96,8 @@ python scripts/build_db.py     # build data/nuclear.duckdb
 duckdb -readonly data/nuclear.duckdb
 streamlit run app.py           # the web app, at http://localhost:8501
 ```
+
+To just run the dashboard, `pip install -r requirements.txt` and `streamlit run app.py` are enough: the cleaned data is already in the repo, and the app builds the database itself. `ingest.py` re-downloads everything from IESO (for newer data).
 
 The DuckDB CLI is a separate install ([duckdb.org/docs/installation](https://duckdb.org/docs/installation/), or `brew install duckdb` on macOS, `winget install DuckDB.cli` on Windows). It must be the same version as, or newer than, the `duckdb` package in requirements.txt.
 
@@ -100,3 +121,7 @@ The DuckDB CLI is a separate install ([duckdb.org/docs/installation](https://duc
 - [IESO Intertie Schedule and Flow](https://reports-public.ieso.ca/public/IntertieScheduleFlowYear/): hourly imports and exports, 2019 →
 - Prices: [HOEP](https://reports-public.ieso.ca/public/PriceHOEPPredispOR/) (old market, to Apr 2025) and [day-ahead Ontario Zonal Price](https://reports-public.ieso.ca/public/DAHourlyOntarioZonalPrice/) (new market). IESO only keeps ~90 days of the new price online, so there's no public data for May 2025 to Jul 2026
 - Refurbishment dates: OPG, Bruce Power and news sources, linked per row
+
+## License
+
+[MIT](LICENSE) for the code and SQL. The data is IESO's, published under their [terms of use](https://www.ieso.ca/terms-of-use).
