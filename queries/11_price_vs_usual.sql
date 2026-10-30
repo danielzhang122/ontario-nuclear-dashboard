@@ -1,0 +1,43 @@
+-- Price vs. how much nuclear is available, compared within the same month (like 09, but for price)
+--
+-- GOAL: when nuclear is below its usual level for the month, is the price above its usual level?
+--
+-- STEP 1  get hourly nuclear and price
+--     how:  for each hour, total nuclear CAPABILITY (not output) and that hour's price
+--     why:  capability only drops for real outages. output also drops when Bruce cuts power on
+--           cheap, surplus nights, which would fake a "low nuclear = low price" link
+--
+-- STEP 2  find each month's normal
+--     how:  for each month, average nuclear capability and average price
+--     why:  that month's normal already includes its season, weather and fuel costs
+--
+-- STEP 3  compare each hour to its own month's normal
+--     how:  hour's value minus its month's average, for both nuclear capability and price
+--     why:  removes the season and year effect, like 08/09
+--
+-- STEP 4  sort hours by nuclear vs. its monthly average
+--     how:  CASE WHEN  500+ MW below → "below monthly average"
+--                      within 500 MW → "near monthly average"
+--                      500+ MW above → "above monthly average"
+--
+-- STEP 5  average the price difference in each group
+--     why:  if the price is above usual in "below monthly average" hours, outages raise prices
+--
+-- RESULT: 3 rows: hours, nuclear capability vs. usual (MW), price vs. usual ($/MWh)
+--
+-- Notes:
+--   - prices: HOEP (old market, until Apr 2025) and day-ahead Ontario Zonal Price (new market, from Jul 31 2026).
+--     no public price data for May 2025 to Jul 2026, so those hours are skipped.
+--     each month uses only one price type, so comparing within the month never mixes the two.
+--   - this is the wholesale market price, not your electricity bill.
+--   - correlation, not proof: a heat wave raises prices whatever nuclear is doing.
+
+
+
+
+-- how it works, in plain words:
+--   1. for each month, they work out nuclear's average hourly capability and the average hourly price.
+--   2. they compare each hour's nuclear capability and price with that month's averages.
+--   3. they sort the hours by nuclear: −500 or lower, −500 to 500, and 500+.
+--   4. they average the price difference within each group. if prices are higher in the
+--      "below monthly average" hours, outages raise prices.

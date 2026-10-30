@@ -8,7 +8,9 @@
 
 CREATE OR REPLACE TABLE outages AS
 
--- STEP 1: every nuclear unit-hour, with a true/false flag for "unavailable this hour"
+-- STEP 1: flag every nuclear hour as on or off
+--   what: one row per nuclear unit per hour, with is_off = true when its capability is 0 or missing
+--   why:  capability 0 means IESO itself says the unit can't run, which is a cleaner signal than output
 WITH hourly AS (
     SELECT g.generator_name,
            u.plant,
@@ -19,7 +21,10 @@ WITH hourly AS (
     WHERE u.fuel_type = 'NUCLEAR'
 ),
 
--- STEP 2: mark the first hour of each outage (off now, but not off the hour before)
+-- STEP 2: find the first hour of each outage
+--   what: starts_here = true when the unit is off this hour but was NOT off the hour before
+--         (lag() looks at the previous hour of the same unit; coalesce treats the unit's first hour as "was on")
+--   why:  every outage begins with exactly one of these hours, so they mark where outages start
 marked AS (
     SELECT *,
            is_off AND NOT coalesce(lag(is_off) OVER (PARTITION BY generator_name ORDER BY timestamp), false)
@@ -27,14 +32,20 @@ marked AS (
     FROM hourly
 ),
 
--- STEP 3: give every outage a number by keeping a running count of starts per unit
+-- STEP 3: number the outages
+--   what: a running count of outage starts per unit, in time order (::INT turns true/false into 1/0)
+--         so every hour of the 1st outage gets 1, every hour of the 2nd gets 2, and so on
+--   why:  hours that share a number belong to the same outage, so they can be grouped in the next step
 numbered AS (
     SELECT *,
            sum(starts_here::INT) OVER (PARTITION BY generator_name ORDER BY timestamp) AS outage_id
     FROM marked
 ),
 
--- STEP 4: collapse each numbered run of "off" hours into one row; keep runs of 24+ hours
+-- STEP 4: turn each numbered outage into one row
+--   what: keep only the "off" hours, group them by unit and outage number, and take the first hour (start),
+--         last hour (end) and number of hours (duration); HAVING drops outages shorter than 24 hours
+--   why:  this is the actual outage list; 24 hours is the cutoff for "extended", shorter dips are mostly glitches
 runs AS (
     SELECT generator_name, plant,
            min(timestamp) AS start_ts,
@@ -46,7 +57,9 @@ runs AS (
     HAVING count(*) >= 24
 ),
 
--- STEP 5: facts per unit: rated power (highest capability ever) and first/last hour in the data
+-- STEP 5: a fact sheet per unit
+--   what: each unit's rated power (highest capability ever seen) and its first and last hour in the data
+--   why:  rated power defines "back at full power" for ramp-up; first/last hour show outages cut off by the data
 units AS (
     SELECT generator_name,
            max(capability_mw) AS rated_mw,
@@ -56,13 +69,16 @@ units AS (
     GROUP BY generator_name
 )
 
--- FINAL: add the label, the flags and the ramp-up time
+-- FINAL: one row per outage, plus its label, two flags and the ramp-up time
 SELECT r.generator_name,
        r.plant,
        r.start_ts,
        r.end_ts,
        r.duration_h,
        round(r.duration_h / 24, 1) AS duration_days,
+       -- label: look in the refurbishments list for the same unit with dates that overlap this outage
+       --   (overlap = the refurbishment started before the outage ended AND ended after it started;
+       --    a NULL end_date means it's still going); no match → 'other'
        coalesce(
            (SELECT f.kind
             FROM refurbishments AS f
@@ -73,6 +89,8 @@ SELECT r.generator_name,
            'other') AS label,
        r.start_ts = n.first_ts AS started_before_data,  -- already offline when the data begins
        r.end_ts   = n.last_ts  AS ongoing,              -- never came back within the data
+       -- ramp_up_h: hours from the outage's last hour to the first hour within 60 days
+       --   where the unit made 90% of its rated power; NULL if it never got there
        (SELECT datediff('hour', r.end_ts, min(g.timestamp))
         FROM generation AS g
         WHERE g.generator_name = r.generator_name
@@ -82,3 +100,14 @@ SELECT r.generator_name,
 FROM runs AS r
 JOIN units AS n ON r.generator_name = n.generator_name
 ORDER BY r.generator_name, r.start_ts;
+
+-- how it works, in plain words:
+--   1. for every nuclear unit and every hour, they check whether its capability was 0. if so, that hour is "off".
+--   2. they find the hours where a unit just turned off: off this hour, but on the hour before.
+--   3. they number each outage, so all the off hours of the same outage share a number.
+--   4. they squash each numbered outage into one row: first hour = start, last hour = end,
+--      number of hours = duration. outages shorter than 24 hours get thrown out.
+--   5. for each outage, they check the refurbishments list for the same unit with overlapping dates.
+--      if there's a match, it's labelled refurbishment or permanent shutdown; if not, it's "other".
+--   6. they count how many hours it took after the outage for the unit to get back to 90% of its full power.
+--   7. the result is saved as the outages table, so other queries can use it.

@@ -34,5 +34,14 @@ CREATE TABLE interties (
     net_flow_mw    DOUBLE                  -- metered net flow; POSITIVE = Ontario is a net exporter that hour
 );
 
+-- One row per hour: Ontario's wholesale electricity price.
+-- Two different markets, never to be mixed: 'HOEP' (old market, until Apr 30 2025) and
+-- 'DA_OZP' (day-ahead Ontario Zonal Price, renewed market). No public archive for May 2025 to Jul 2026.
+CREATE TABLE prices (
+    timestamp      TIMESTAMP PRIMARY KEY,  -- start of the hour, Eastern Standard Time
+    price_cad_mwh  DOUBLE,                 -- $ per MWh (can be negative when there's surplus power)
+    price_type     VARCHAR NOT NULL        -- 'HOEP' or 'DA_OZP'
+);
+
 -- The outages table is derived from the tables above: it is created by queries/06_outages.sql,
 -- which build_db.py runs after loading the data.

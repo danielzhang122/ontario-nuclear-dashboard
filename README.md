@@ -1,8 +1,8 @@
 # What happens to Ontario's grid when a nuclear reactor goes offline?
 
-I've spent 10+ months as an intern at Eclipse Automation, helping build tooling for the Pickering Nuclear Reactor refurbishment, one of the largest infrastructure projects in Canada. That got me curious about how the work I do affects the way electricity is supplied across Ontario. So I did what any rational person would do: I learned SQL and data analytics to find out.
+I've spent 10+ months as an intern at Eclipse Automation, helping build tooling for the Pickering Nuclear Reactor refurbishment, one of the largest infrastructure projects in Canada. That got me curious about how my work affects the way electricity is supplied across Ontario. So I did what any rational person would do: I learned SQL and data analytics to find out.
 
-Hourly IESO data (May 2019 →) on every Ontario nuclear outage: what filled the gap, what happened to prices, and how much extra CO2 was emitted.
+This project uses hourly IESO data (May 2019 →) to look at every Ontario nuclear outage: what filled the gap, what happened to prices, and how much extra CO2 was emitted.
 
 Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries/) runs from basic `SELECT` up to window functions.
 
@@ -33,7 +33,8 @@ Throughout, it documents what hourly data can't tell you, and marks inferred eve
 - [ ] **Goal 3:** price impact
 - [ ] **Goal 4:** CO2 impact
 - [ ] **Goal 5:** reactor manoeuvres (in progress: ramp-up time done)
-- [ ] Front end (Streamlit web app)
+- [ ] **Goal 6:** front end (Streamlit web app)
+- [ ] **Goal 7 (tentative):** automatic daily data updates with a scheduled job, e.g. GitHub Actions (after the front end is online)
 - [ ] Stretch: plain-English questions → SQL, in the front end
 
 ## Findings so far
@@ -48,7 +49,7 @@ Throughout, it documents what hourly data can't tell you, and marks inferred eve
 
 ## Goal 5: reading reactor manoeuvres from the data
 
-Hourly output and capability can be used to work backwards to what each reactor was doing, with some assumptions: forced shutdowns, ramping back up to full power, or running at reduced power.
+Goals 1–4 ask the standard questions: when did reactors go offline, what replaced them, and what did it cost? But what about the reactors themselves? The data only shows output and capability, but those can reveal what each reactor was actually doing (forced shutdowns, ramping back up to full power, or running at reduced power), with some assumptions.
 
 - **Ramp-up after an outage:** done. `ramp_up_h` in the `outages` table is the time back to 90% of full power.
 - **Forced vs. planned shutdowns:** the drop shape alone isn't enough (planned shutdowns also drop to 0 in about 2 hours), so the plan is to combine other signals:
@@ -59,19 +60,20 @@ Hourly output and capability can be used to work backwards to what each reactor 
 
   Each outage will be labelled **planned**, **likely forced** or **unknown**, with a confidence level and the reasons. Sourced matches take priority. "Likely forced" means inferred from the data, not confirmed.
 - **Running at reduced power without shutting down** (e.g. Bruce cutting output on windy, low-demand nights): not done yet.
-
 ## Run it
 
+Works on Linux, macOS and Windows (Python 3.13).
+
 ```
-python -m venv .venv
-.venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python scripts/ingest.py      # download + clean IESO data
-python scripts/build_db.py    # build data/nuclear.duckdb
+python scripts/ingest.py       # download + clean IESO data
+python scripts/build_db.py     # build data/nuclear.duckdb
 duckdb -readonly data/nuclear.duckdb
 ```
 
-The DuckDB CLI (`winget install DuckDB.cli`) must be the same version as `duckdb` in requirements.txt.
+The DuckDB CLI is a separate install ([duckdb.org/docs/installation](https://duckdb.org/docs/installation/), or `brew install duckdb` on macOS, `winget install DuckDB.cli` on Windows). It must be the same version as, or newer than, the `duckdb` package in requirements.txt.
 
 ## Tables
 
@@ -81,6 +83,7 @@ The DuckDB CLI (`winget install DuckDB.cli`) must be the same version as `duckdb
 | `generation` | 11.8M | output and capability per unit per hour |
 | `refurbishments` | 13 | announced refurbishments/shutdowns, with sources ([reference/](reference/refurbishments.csv)) |
 | `interties` | 68.6k | Ontario's total imports, exports and net flow per hour |
+| `prices` | 57.7k | wholesale price per hour ($/MWh); `price_type` = HOEP (until Apr 2025) or DA_OZP (from Jul 31, 2026) |
 | `outages` | 206 | detected outages, built by [06_outages.sql](queries/06_outages.sql) |
 
 **Interties** are the high-voltage power lines that connect Ontario's grid to its neighbours: Quebec, New York, Michigan, Manitoba and Minnesota (14 lines in total). Power can flow across them in either direction. Ontario **imports** when it needs more than it generates, and **exports** when it has extra. In `net_flow_mw`, positive means Ontario exported more than it imported that hour.
@@ -89,4 +92,5 @@ The DuckDB CLI (`winget install DuckDB.cli`) must be the same version as `duckdb
 
 - [IESO Generator Output and Capability](https://reports-public.ieso.ca/public/GenOutputCapabilityMonth/): generators of 20 MW or more; small local generators like rooftop solar aren't included
 - [IESO Intertie Schedule and Flow](https://reports-public.ieso.ca/public/IntertieScheduleFlowYear/): hourly imports and exports, 2019 →
+- Prices: [HOEP](https://reports-public.ieso.ca/public/PriceHOEPPredispOR/) (old market, to Apr 2025) and [day-ahead Ontario Zonal Price](https://reports-public.ieso.ca/public/DAHourlyOntarioZonalPrice/) (new market). IESO only keeps ~90 days of the new price online, so there's no public data for May 2025 to Jul 2026
 - Refurbishment dates: OPG, Bruce Power and news sources, linked per row
