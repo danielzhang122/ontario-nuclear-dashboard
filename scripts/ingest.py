@@ -4,8 +4,13 @@
   timestamp, generator_name, plant, fuel_type, output_mw, capability_mw.
 - Intertie Schedule and Flow (yearly): data/clean/interties_YYYY.parquet, one row per hour of Ontario totals:
   timestamp, import_mw, export_mw, net_flow_mw.
+- Prices: data/clean/prices_hoep_YYYY.parquet (HOEP, yearly CSVs, until Apr 2025) and
+  data/clean/prices_ozp.parquet (day-ahead Ontario Zonal Price, daily XMLs, new market):
+  timestamp, price_cad_mwh, price_type.
 Safe to rerun: downloaded files are cached and each Parquet file is overwritten, never appended.
 """
+import re
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pandas as pd
@@ -16,6 +21,10 @@ RAW = ROOT / "data" / "raw"
 CLEAN = ROOT / "data" / "clean"
 URL = "https://reports-public.ieso.ca/public/GenOutputCapabilityMonth/PUB_GenOutputCapabilityMonth_{}.csv"
 INTERTIE_URL = "https://reports-public.ieso.ca/public/IntertieScheduleFlowYear/PUB_IntertieScheduleFlowYear_{}.csv"
+HOEP_URL = "https://reports-public.ieso.ca/public/PriceHOEPPredispOR/PUB_PriceHOEPPredispOR_{}.csv"
+HOEP_LAST_YEAR = 2025  # HOEP ended when the renewed market started on May 1, 2025
+OZP_DIR = "https://reports-public.ieso.ca/public/DAHourlyOntarioZonalPrice/"
+OZP_NS = {"i": "http://www.ieso.ca/schema"}
 START = pd.Period("2019-05", "M")  # first month IESO publishes in this format
 END = pd.Period.now("M") - 1  # latest complete month
 REFRESH = 2  # IESO keeps revising recent months, so always re-download the last few
@@ -64,6 +73,41 @@ def clean_interties(path):
                          "import_mw": df.iloc[:, -3], "export_mw": df.iloc[:, -2], "net_flow_mw": df.iloc[:, -1]})
 
 
+def clean_hoep(path):
+    # 3 metadata lines, then Date,Hour,HOEP,... (predispatch and reserve columns are not needed)
+    df = pd.read_csv(path, skiprows=3, usecols=["Date", "Hour", "HOEP"], na_values=[" "])
+    return pd.DataFrame({"timestamp": hour_to_ts(df["Date"], df["Hour"]),
+                         "price_cad_mwh": df["HOEP"], "price_type": "HOEP"})
+
+
+def clean_ozp(path):
+    doc = ET.parse(path).getroot()
+    day = doc.find(".//i:DeliveryDate", OZP_NS).text
+    hours = doc.findall(".//i:HourlyPriceComponents", OZP_NS)
+    return pd.DataFrame({"timestamp": hour_to_ts(pd.Series([day] * len(hours)),
+                                                 pd.Series([h.find("i:PricingHour", OZP_NS).text for h in hours])),
+                         "price_cad_mwh": [float(h.find("i:ZonalPrice", OZP_NS).text) for h in hours],
+                         "price_type": "DA_OZP"})
+
+
+def download_ozp():
+    # IESO keeps only ~90 days online, so every day ever downloaded stays cached in data/raw/ozp/
+    folder = RAW / "ozp"
+    folder.mkdir(exist_ok=True)
+    days = sorted(set(re.findall(r"PUB_DAHourlyOntarioZonalPrice_(\d{8})\.xml", requests.get(OZP_DIR, timeout=60).text)))
+    for day in days:
+        # the newest few days can still be revised; the unversioned file is always the latest version
+        download(f"{OZP_DIR}PUB_DAHourlyOntarioZonalPrice_{day}.xml", folder / f"{day}.xml", force=day >= days[-3])
+    return sorted(folder.glob("*.xml"))
+
+
+def check_prices(df):
+    assert not df["timestamp"].duplicated().any(), "duplicate price hours"
+    for kind, g in df.groupby("price_type"):
+        print(f"prices {kind}: {len(g):,} hours, {g['timestamp'].min()} to {g['timestamp'].max()}, "
+              f"median ${g['price_cad_mwh'].median():.2f}/MWh")
+
+
 def check_interties(df):
     assert not df["timestamp"].duplicated().any(), "duplicate intertie hours"
     print(f"interties: {len(df):,} hours, {df['timestamp'].min()} to {df['timestamp'].max()}")
@@ -91,6 +135,12 @@ def main():
         raw = download(INTERTIE_URL.format(year), RAW / f"interties_{year}.csv", force=year >= END.year - 1)
         clean_interties(raw).to_parquet(CLEAN / f"interties_{year}.parquet", index=False)
     check_interties(pd.concat(map(pd.read_parquet, sorted(CLEAN.glob("interties_*.parquet")))))
+
+    for year in range(START.year, HOEP_LAST_YEAR + 1):
+        raw = download(HOEP_URL.format(year), RAW / f"hoep_{year}.csv", force=False)  # all final, HOEP has ended
+        clean_hoep(raw).to_parquet(CLEAN / f"prices_hoep_{year}.parquet", index=False)
+    pd.concat(map(clean_ozp, download_ozp())).to_parquet(CLEAN / "prices_ozp.parquet", index=False)
+    check_prices(pd.concat(map(pd.read_parquet, sorted(CLEAN.glob("prices_*.parquet")))))
 
 
 if __name__ == "__main__":
