@@ -24,8 +24,9 @@ def main():
         con.execute(f"INSERT INTO refurbishments SELECT * FROM '{(ROOT / 'reference' / 'refurbishments.csv').as_posix()}'")
         con.execute(f"INSERT INTO interties SELECT * FROM '{INTERTIES}'")
         con.execute(f"INSERT INTO prices SELECT * FROM '{PRICES}'")
+        con.execute(f"INSERT INTO assumptions SELECT * FROM '{(ROOT / 'reference' / 'assumptions.csv').as_posix()}'")
         con.execute((ROOT / "queries" / "06_outages.sql").read_text(encoding="utf-8"))  # derived table, built from the ones above
-        for table in ["generators", "generation", "refurbishments", "interties", "prices", "outages"]:
+        for table in ["generators", "generation", "refurbishments", "interties", "prices", "assumptions", "outages"]:
             print(table, con.execute(f"SELECT count(*) FROM {table}").fetchone()[0], "rows")
 
 

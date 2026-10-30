@@ -1,0 +1,2 @@
+name,value,low,high,unit,source,note
+gas_emissions_factor,0.45,0.40,0.55,tCO2e/MWh,https://www.opg.com/wp-content/uploads/2022/08/OPG_ESG_Report_2021_FINAL-ua.pdf,"OPG 2021 ESG report, footnote: CO2 emissions intensity estimates calculated assuming emissions of 450 gCO2e/kWh for gas. Range: efficient combined-cycle plants (~0.40) to peaker plants (~0.55); UNECE life-cycle assessment gives 0.403-0.513 for combined-cycle gas: https://unece.org/sites/default/files/2021-11/LCA_final.pdf"
