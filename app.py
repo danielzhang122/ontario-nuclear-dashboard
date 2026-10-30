@@ -272,8 +272,8 @@ else:
         f"while demand changed by **{g.demand_change_mw:+,.0f} MW**."
     )
     if p is not None:
-        summary += (f" The price went from **${p.price_before_cad_mwh:.2f}** to "
-                    f"**${p.price_during_cad_mwh:.2f}/MWh**.")
+        summary += (f" The price went from **\\${p.price_before_cad_mwh:.2f}** to "
+                    f"**\\${p.price_during_cad_mwh:.2f}/MWh**.")
     more = "more" if c.extra_co2_t_window >= 0 else "less"
     summary += f" Gas released about **{abs(c.extra_co2_t_window):,.0f} t** {more} CO2 over {c.window_days:g} days."
     st.markdown(summary)
@@ -368,8 +368,8 @@ pb = price_all.loc["below monthly average"]
 st.subheader("2 · price: does electricity get more expensive?")
 st.markdown(
     f"Yes, a little. In hours when nuclear capability is **{-pb.nuclear_capability_vs_usual_mw:,.0f} MW below** usual, "
-    f"the wholesale price is **{pb.price_vs_usual_cad_mwh:+.2f} $/MWh** compared with that month's average. "
-    f"When there's more nuclear than usual, it's **{price_all.loc['above monthly average'].price_vs_usual_cad_mwh:+.2f} $/MWh**."
+    f"the wholesale price is **{pb.price_vs_usual_cad_mwh:+.2f} \\$/MWh** compared with that month's average. "
+    f"When there's more nuclear than usual, it's **{price_all.loc['above monthly average'].price_vs_usual_cad_mwh:+.2f} \\$/MWh**."
 )
 prices_chart = pd.DataFrame({
     "Nuclear vs. usual": GROUPS,
@@ -380,9 +380,9 @@ st.bar_chart(prices_chart, x="Nuclear vs. usual", y="Price vs. usual ($/MWh)", c
 st.caption("Each bar: the average difference from that month's average price, for one group of hours.")
 with st.expander("How to read this"):
     st.markdown("""
-- **$/MWh (dollars per megawatt-hour).** The price of 1 MWh of electricity, enough to run
+- **\\$/MWh (dollars per megawatt-hour).** The price of 1 MWh of electricity, enough to run
   roughly 1,000 Ontario homes for an hour. In this data the old market averaged about
-  $29/MWh and the new one about $56/MWh.
+  \\$29/MWh and the new one about \\$56/MWh.
 - **Wholesale price, not your bill.** This is what power trades for on the grid, hour by
   hour. Your bill is mostly fixed rates and charges, so a few dollars per MWh here barely
   reaches it.
