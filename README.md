@@ -62,16 +62,18 @@ Hourly output and capability can be used to work backwards to what each reactor 
 
 ## Run it
 
+Works on Linux, macOS and Windows (Python 3.13).
+
 ```
-python -m venv .venv
-.venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
-python scripts/ingest.py      # download + clean IESO data
-python scripts/build_db.py    # build data/nuclear.duckdb
+python scripts/ingest.py       # download + clean IESO data
+python scripts/build_db.py     # build data/nuclear.duckdb
 duckdb -readonly data/nuclear.duckdb
 ```
 
-The DuckDB CLI (`winget install DuckDB.cli`) must be the same version as `duckdb` in requirements.txt.
+The DuckDB CLI is a separate install ([duckdb.org/docs/installation](https://duckdb.org/docs/installation/), or `brew install duckdb` on macOS, `winget install DuckDB.cli` on Windows). It must be the same version as, or newer than, the `duckdb` package in requirements.txt.
 
 ## Tables
 

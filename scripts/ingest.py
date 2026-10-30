@@ -66,7 +66,7 @@ def clean(path):
 
 def clean_interties(path):
     # 3 metadata lines, then a row of intertie names (each repeated over its Imp/Exp/Flow columns), then the header
-    names = path.read_text().splitlines()[3].rstrip(",").split(",")
+    names = path.read_text(encoding="utf-8").splitlines()[3].rstrip(",").split(",")
     assert names[-3:] == ["Total"] * 3, f"{path.name}: last column group is not Total, layout changed"
     df = pd.read_csv(path, skiprows=5, header=None, na_values=[" "]).iloc[:, :len(names)]
     return pd.DataFrame({"timestamp": hour_to_ts(df[0], df[1]),
