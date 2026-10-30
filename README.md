@@ -34,6 +34,7 @@ Throughout, it documents what hourly data can't tell you, and marks inferred eve
 - [ ] **Goal 4:** CO2 impact
 - [ ] **Goal 5:** reactor manoeuvres (in progress: ramp-up time done)
 - [ ] Front end (Streamlit web app)
+- [ ] **Goal 6:** automatic daily data updates with a scheduled job, e.g. GitHub Actions (optional, after the front end is online)
 - [ ] Stretch: plain-English questions → SQL, in the front end
 
 ## Findings so far
@@ -59,7 +60,6 @@ Hourly output and capability can be used to work backwards to what each reactor 
 
   Each outage will be labelled **planned**, **likely forced** or **unknown**, with a confidence level and the reasons. Sourced matches take priority. "Likely forced" means inferred from the data, not confirmed.
 - **Running at reduced power without shutting down** (e.g. Bruce cutting output on windy, low-demand nights): not done yet.
-
 ## Run it
 
 Works on Linux, macOS and Windows (Python 3.13).
