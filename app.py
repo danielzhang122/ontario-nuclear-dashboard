@@ -614,6 +614,20 @@ with st.expander("How this was worked out"):
   multi-year outages: two weeks can't stand in for years.
 """)
 
+# Every measured outage added up, so a single outage can be seen against the rest.
+all_price, all_co2 = query("12"), query("14")
+old_market = all_price[all_price.price_type == "HOEP"]
+st.markdown(
+    f"**Across all measured outages:** the price went up after **{(old_market.price_change_cad_mwh > 0).sum()} "
+    f"of {len(old_market)}** outages (old market), by **+\\${old_market.price_change_cad_mwh.mean():.2f}/MWh** on "
+    f"average, and Ontario's import/export bill got about **\\${round(old_market.trade_cost_change_per_day.mean(), -3):,.0f} a "
+    f"day** worse. Gas went up after **{(all_co2.gas_change_mw > 0).sum()} of {len(all_co2)}** outages; a typical "
+    f"outage added about **{round(all_co2.extra_co2_t_window.mean(), -3):,.0f} to {round(all_co2.extra_co2_t_window.median(), -3):,.0f} t** "
+    "of CO2 in its first two weeks (average and middle value). Single outages swing both ways with the weather, "
+    f"which is why these totals matter more than any one outage. The new market only has "
+    f"{len(all_price) - len(old_market)} outages with prices so far, too few to say anything."
+)
+
 # --- Findings across all hours (queries 09, 11, 13) ---
 st.space("medium")
 st.header("findings across every hour", anchor=LINKS)
@@ -680,6 +694,10 @@ with st.expander("How to read this"):
   backup. Hydro is limited by how much water there is; wind and solar by the weather.
 - **The check.** Nuclear's drop ≈ other plants' rise + net imports' rise − demand's change:
   {-eb.nuclear_vs_usual_mw:,.0f} ≈ {eb.non_nuclear_vs_usual_mw:,.0f} + {eb.net_imports_vs_usual_mw:,.0f} + {-eb.demand_vs_usual_mw:,.0f} (within rounding).
+- **Why compare within each month.** Comparing hours across *all* months instead makes wind and
+  solar look like the main replacement for nuclear. That's mostly seasons (reactor maintenance is
+  often in windy spring and fall) and new wind farms being added over the years, not wind
+  filling in for nuclear.
 - **Limit.** A reactor that's off for a *whole* month is already missing from that month's
   average, so multi-year refurbishments don't show up here. The per-outage view above covers them.
 """)
@@ -692,8 +710,9 @@ st.subheader("2 · price: does electricity get more expensive?", anchor=LINKS)
 st.markdown(
     f"Yes, a little. In hours when nuclear capability is **{-pb.nuclear_capability_vs_usual_mw:,.0f} MW below** its "
     f"average for that month, the wholesale price is **{pb.price_vs_usual_cad_mwh:+.2f} \\$/MWh** compared with that "
-    f"month's average price. When there's more nuclear than that month's average, it's "
-    f"**{price_all.loc['above monthly average'].price_vs_usual_cad_mwh:+.2f} \\$/MWh**."
+    f"month's average price, about 15% of a typical old-market price. When there's more nuclear than that month's "
+    f"average, it's **{price_all.loc['above monthly average'].price_vs_usual_cad_mwh:+.2f} \\$/MWh**. It still holds "
+    "with the most extreme price spikes left out."
 )
 bars(GROUPS, [price_all.loc[lv].price_vs_usual_cad_mwh for lv in LEVELS], [ACCENT, DIM, DIM],
      GROUPS_TITLE, "Price vs. that month's average ($/MWh)")
