@@ -43,5 +43,16 @@ CREATE TABLE prices (
     price_type     VARCHAR NOT NULL        -- 'HOEP' or 'DA_OZP'
 );
 
+-- Every number the analysis assumes rather than measures, hand-entered in reference/assumptions.csv with a source.
+CREATE TABLE assumptions (
+    name    VARCHAR PRIMARY KEY,  -- e.g. 'gas_emissions_factor'
+    value   DOUBLE NOT NULL,      -- central value used in the queries
+    low     DOUBLE,               -- low end of the plausible range, for sensitivity
+    high    DOUBLE,               -- high end
+    unit    VARCHAR,              -- e.g. 'tCO2e/MWh'
+    source  VARCHAR,              -- URL of the source
+    note    VARCHAR
+);
+
 -- The outages table is derived from the tables above: it is created by queries/06_outages.sql,
 -- which build_db.py runs after loading the data.
