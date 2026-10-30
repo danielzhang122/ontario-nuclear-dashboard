@@ -38,7 +38,7 @@ Throughout, it documents what hourly data can't tell you, and marks inferred eve
 - [x] **Goal 2:** replacement supply, overall ([09](queries/09_supply_vs_usual_with_imports.sql)) and per outage ([10](queries/10_what_filled_the_gap_per_outage.sql)); Goals 3–4 build on 10
 - [x] **Goal 3:** price impact, overall ([11](queries/11_price_vs_usual.sql)) and per outage ([12](queries/12_price_per_outage.sql))
 - [x] **Goal 4:** CO2 impact, overall ([13](queries/13_co2_vs_usual.sql)) and per outage ([14](queries/14_co2_per_outage.sql)); the emissions factor is in [reference/assumptions.csv](reference/assumptions.csv)
-- [ ] **Goal 5:** reactor manoeuvres (in progress: milestone 1 done: hourly operating states, events and the first findings, see [the report](reports/goal5_milestone1.md))
+- [ ] **Goal 5:** what the reactors themselves were doing (in progress: milestone 1 done, see [below](#milestone-1-what-were-the-reactors-doing-done) and [the report](reports/goal5_milestone1.md))
 - [x] **Goal 6:** front end: [Streamlit app](https://nuclear-dashboard.streamlit.app/) ([app.py](app.py)), see [The dashboard](#the-dashboard)
 - [ ] **Goal 7 (tentative):** automatic daily data updates with a scheduled job, e.g. GitHub Actions
 - [ ] Stretch: plain-English questions → SQL, in the front end
@@ -71,19 +71,23 @@ Goals 1–4 ask the standard questions: when did reactors go offline, what repla
   Each outage will be labelled **planned**, **likely forced** or **unknown**, with a confidence level and the reasons. Sourced matches take priority. "Likely forced" means inferred from the data, not confirmed.
 - **Running at reduced power without shutting down** (e.g. Bruce cutting output on windy, low-demand nights): measured in milestone 1 (below).
 
-### Milestone 1: operating states and events
+### Milestone 1: what were the reactors doing? (done)
 
-Every nuclear unit-hour gets an **observed electrical state** ([15](queries/15_unit_states.sql) → `unit_hours`), compared with the unit's rating at the time (highest capability over its last 720 operating hours, so uprates and long outages are handled):
-`OFFLINE` (capability reported 0), `DERATED` (capability below 90% of the rating), `UNDER_OUTPUT` (capability near full, output below 90% of it), `FULL`, `UNKNOWN` (missing data).
-Consecutive same-state hours become events ([16](queries/16_unit_events.sql) → `unit_events`), with censoring and data-quality flags. These describe what was reported and generated, not reactor conditions or causes.
+I sorted every hour of every Ontario reactor since May 2019 into "running normally", "off", "partly running" or "could run but made less", grouped those hours into events, and used them to show how often reactors go down, how long outages last, and how closely their output matches what they said they could make.
 
-Findings so far ([full report](reports/goal5_milestone1.md), regenerate with `python scripts/goal5_report.py`):
-- Data checks: no missing capability and no timestamp gaps in the data; the outage query now handles both correctly anyway, and the 206 outages are unchanged
-- The fleet was at full output 71% of the time and offline 26%, mostly refurbishments. About 2.1 outages of 24 h+ per operating unit-year (unit-level bootstrap 95% interval 1.8-2.4), similar at all three stations
-- Outages over 60 days are 17% of offline events but 86% of offline hours: a typical offline event is short (median 116 h), but long ones dominate downtime
-- Output follows reported capability closely (99.8% capability utilisation). Nearly all lost energy is the unit reporting it can't run, not running below what it offered
-- Running below offered capability (`UNDER_OUTPUT`) is almost only Bruce (5,557 of 5,589 hours), mostly overnight and in May-June, and far more common in 2019-2020. Consistent with deliberate reductions on surplus nights, but the data can't show the cause
-- Robust to thresholds and the reference choice: % offline, outage rate, availability, Bruce's under-output. Not robust: which station derates most (Pickering at 90%, Darlington at 95%)
+- **How the labels work.** Every hour, IESO reports two numbers per reactor: how much it *could* make and how much it *did* make. "Off" means it said it couldn't run at all. "Partly running" means it said it could only do part (under 90% of its full power). "Could run but made less" means it said it could run fully but made under 90% of that. Each reactor is compared with its own full power at the time, because reactors get upgraded over the years. ([15](queries/15_unit_states.sql) labels the hours, [16](queries/16_unit_events.sql) groups them into events.)
+- **Checking the old work first.** Before adding anything, I checked whether missing numbers or missing hours in the data could have created fake outages. The data has neither, so the 206 outages are unchanged, but the outage query now handles both correctly in case future data has holes. Small made-up test cases check this: `python tests/test_events.py`.
+- **Checking the answers.** Some lines are my choice ("under 90% counts as partly running"), so everything was re-run with 85% and 95% and with a different meaning of "full power". Findings that held up every time are below; one that didn't is labelled.
+
+What it found ([full report with all the numbers](reports/goal5_milestone1.md), rebuilt with `python scripts/goal5_report.py`):
+- **Most of the time, reactors run normally:** about 71% of all hours running normally and 26% off, mostly planned rebuilds that take years
+- **Reactors go down about twice a year:** counting only time spent running, each reactor has an outage of a day or longer about 2.1 times a year, similar at Bruce, Darlington and Pickering
+- **A few long outages cause almost all the downtime:** outages over 2 months are 17% of outages but 86% of the hours reactors were off
+- **Reactors make what they say they can make:** output was 99.8% of what reactors said they could make, so lost power comes from reactors saying they can't run, not from running below what they offered
+- **Bruce turns down at night:** "could run but made less" happens almost only at Bruce, mostly midnight to 4 a.m. and in May-June. That fits lowering output when Ontario has more power than it needs, but the data can't prove why
+- **Didn't hold up:** which plant spends the most time partly running (Pickering at the 90% line, Darlington at 95%), so it isn't claimed
+
+None of this shows *why* a reactor was off or turned down; the data only has what was reported and produced.
 
 ## The dashboard
 
@@ -93,6 +97,7 @@ Findings so far ([full report](reports/goal5_milestone1.md), regenerate with `py
 - **All outages:** the `outages` table, with a tooltip on every column
 - **Outage explorer:** pick an outage to see that reactor's output vs. capability around it, the ramp-up time, and what it did to the grid: power lost, price change and extra CO2 in its first 14 days, plus a chart of what filled the gap ([10](queries/10_what_filled_the_gap_per_outage.sql), [12](queries/12_price_per_outage.sql), [14](queries/14_co2_per_outage.sql)). Outages that can't be measured say why.
 - **Findings across every hour:** the energy, price and CO2 findings ([09](queries/09_supply_vs_usual_with_imports.sql), [11](queries/11_price_vs_usual.sql), [13](queries/13_co2_vs_usual.sql)), each with a "how to read this" box
+- **Reactor behaviour:** the Goal 5 milestone 1 findings in plain words: how reactors split their time, how often they go down, how long outages last, how closely output matches what they said they could make, and Bruce's night-time cutbacks
 - Light and dark mode (menu at the top right → Settings), styled after [zhangdz.ca](https://zhangdz.ca)
 
 The database isn't in git (it's over GitHub's 100 MB limit). The cleaned data in `data/clean/` is, and the app builds `data/nuclear.duckdb` from it on first start (~15 s). That's how the hosted app gets its data.
@@ -127,8 +132,8 @@ The DuckDB CLI is a separate install ([duckdb.org/docs/installation](https://duc
 | `prices` | 57.7k | wholesale price per hour ($/MWh); `price_type` = HOEP (until Apr 2025) or DA_OZP (from Jul 31, 2026) |
 | `assumptions` | 1 | every assumed (not measured) number, with its source: the gas emissions factor, 0.45 tCO2e/MWh ([reference/](reference/assumptions.csv)) |
 | `outages` | 206 | detected outages, built by [06_outages.sql](queries/06_outages.sql) |
-| `unit_hours` | 1.16M | each nuclear unit-hour with its rating at the time and an operating state, built by [15_unit_states.sql](queries/15_unit_states.sql) |
-| `unit_events` | 3.1k | runs of consecutive same-state hours, with censoring and data-quality flags, built by [16_unit_events.sql](queries/16_unit_events.sql) |
+| `unit_hours` | 1.16M | every reactor-hour with its full power at the time and its label (running normally, off, partly running...), built by [15_unit_states.sql](queries/15_unit_states.sql) |
+| `unit_events` | 3.1k | stretches of hours in a row with the same label, with flags for missing data and for events cut off by the start or end of the data, built by [16_unit_events.sql](queries/16_unit_events.sql) |
 
 **Interties** are the high-voltage power lines that connect Ontario's grid to its neighbours: Quebec, New York, Michigan, Manitoba and Minnesota (14 lines in total). Power can flow across them in either direction. Ontario **imports** when it needs more than it generates, and **exports** when it has extra. In `net_flow_mw`, positive means Ontario exported more than it imported that hour.
 

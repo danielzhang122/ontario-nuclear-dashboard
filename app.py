@@ -1,4 +1,5 @@
 import datetime as dt
+import re
 import runpy
 from pathlib import Path
 
@@ -8,6 +9,156 @@ import pandas as pd
 import streamlit as st
 
 st.set_page_config(page_title="ontario nuclear outages", layout="wide")
+
+# Every term the dashboard uses, in plain words: (group, term, meaning).
+DEFINITIONS = [
+    ("Electricity basics", "Electricity grid",
+     "The network of power plants, power lines and users. Ontario's grid is run by the IESO."),
+    ("Electricity basics", "Power (MW, megawatt)",
+     "How fast electricity is being made or used right now, like the speed on a speedometer. "
+     "1 MW = 1,000 kW = 1,000,000 W. A kettle uses about 1.5 kW; 1 MW is roughly 1,000 homes on average."),
+    ("Electricity basics", "Energy (MWh, megawatt-hour)",
+     "Power over time, like distance = speed × time. 800 MW for one hour = 800 MWh."),
+    ("Electricity basics", "GWh, TWh",
+     "Bigger energy units. 1 GWh = 1,000 MWh; 1 TWh = 1,000 GWh. One reactor at full power makes about 20 GWh a day."),
+    ("Electricity basics", "Demand",
+     "How much electricity Ontario is using in a given hour: everything it generates plus net imports."),
+    ("Electricity basics", "Supply must equal demand",
+     "The grid has to make exactly as much power as people use, every second. If a reactor stops, something else "
+     "must make more, more must be imported, or less must be used."),
+    ("Electricity basics", "Surplus power",
+     "Hours when Ontario can make more power than it needs, usually at night, especially in spring."),
+    ("Trade", "Interties",
+     "The power lines that cross Ontario's borders, to Québec, New York, Michigan, Manitoba and Minnesota "
+     "(14 in total). Power can flow either way."),
+    ("Trade", "Imports / exports",
+     "Power bought from / sold to neighbouring grids over the interties."),
+    ("Trade", "Net imports",
+     "Imports minus exports. Ontario usually exports, so net imports going up mostly means it sold less."),
+    ("Prices", "Wholesale price ($/MWh)",
+     "What electricity trades for on the grid each hour, in dollars per MWh. Not your home bill, which is mostly "
+     "fixed rates and charges."),
+    ("Prices", "HOEP",
+     "Hourly Ontario Energy Price: the wholesale price in Ontario's old market, used here until April 2025."),
+    ("Prices", "Day-ahead Ontario zonal price",
+     "The wholesale price in Ontario's new market, used here from 31 July 2026. No public prices exist for the "
+     "months in between."),
+    ("Reactors and plants", "Reactor (unit)",
+     "One reactor with its own turbine and generator. Each one can be switched off while the others keep running."),
+    ("Reactors and plants", "Plant (station)",
+     "A site with several reactors: Bruce (8), Darlington (4) and Pickering (6, two of them retired in 2026)."),
+    ("Reactors and plants", "Unit names",
+     "Plant + unit number. DARLINGTON-G4 = Darlington unit 4. BRUCEA / BRUCEB and PICKERINGA / PICKERINGB are "
+     "two halves of the same site."),
+    ("Reactors and plants", "Fleet",
+     "All of Ontario's nuclear reactors together (18 in this data)."),
+    ("Reactors and plants", "How a reactor makes electricity",
+     "Uranium atoms split (fission) and release heat. The heat boils water into steam, the steam spins a turbine, "
+     "and the turbine spins a generator."),
+    ("Reactors and plants", "Refurbishment",
+     "A planned rebuild of a reactor that takes years and adds about 30 years to its life."),
+    ("Reactors and plants", "Permanent shutdown",
+     "A reactor retired for good (Pickering units 1 and 4 in this data)."),
+    ("Outages", "Outage",
+     "A stretch when a reactor reported it couldn't run at all. On the outage pages: 24 hours or longer."),
+    ("Outages", "Planned vs. unexpected outage",
+     "Planned: maintenance or a rebuild scheduled in advance. Unexpected (forced): something went wrong. "
+     "Public data can't yet tell them apart, so most outages are labelled \"other\"."),
+    ("Outages", "Ramp-up",
+     "After an outage, reactors come back gradually. Ramp-up time = hours until a reactor reaches 90% of full power."),
+    ("Capacity words", "Output",
+     "How much electricity a reactor actually made in an hour (MW)."),
+    ("Capacity words", "Capability",
+     "How much a reactor said it could make in that hour, as reported to the IESO. Like a speed limit, where "
+     "output is how fast you actually drove."),
+    ("Capacity words", "Full power (rating)",
+     "The most a reactor can make. Here: the highest capability it reported over roughly its last month of running, "
+     "because reactors get upgraded (Bruce 1 went from 779 MW to 828 MW)."),
+    ("Reactor labels (section 4)", "Running normally",
+     "Making about what it said it could, close to full power."),
+    ("Reactor labels (section 4)", "Off",
+     "The reactor reported it can't run at all (capability 0)."),
+    ("Reactor labels (section 4)", "Partly running",
+     "The reactor reported it can only run part of the way: capability under 90% of its full power."),
+    ("Reactor labels (section 4)", "Could run but made less",
+     "The reactor said it could run fully but made under 90% of that."),
+    ("Reactor labels (section 4)", "Unknown",
+     "Hours with missing data (69 of 1.16 million)."),
+    ("Reactor labels (section 4)", "Event",
+     "Hours in a row with the same label, counted as one thing, e.g. \"partly running for 37 hours\"."),
+    ("Other power sources", "Natural gas plants",
+     "Burn gas to make electricity. Can be turned up or down within hours, so they're the usual backup. "
+     "They release CO2."),
+    ("Other power sources", "Hydro (dams)",
+     "Electricity from flowing water. Limited by how much water there is."),
+    ("Other power sources", "Wind and solar",
+     "Electricity from wind turbines and solar panels. Depends on the weather."),
+    ("Other power sources", "Biofuel / other",
+     "Small plants burning wood waste and similar fuels. A tiny share in Ontario."),
+    ("Pollution", "CO2",
+     "Carbon dioxide, the main gas behind climate change. Running reactors make almost none; gas plants do."),
+    ("Pollution", "Tonne (t)",
+     "1,000 kg. A typical car releases a few tonnes of CO2 a year."),
+    ("Pollution", "Emissions factor",
+     "How much CO2 one MWh of gas power releases. Used here: 0.45 t per MWh (range 0.40 to 0.55), from OPG."),
+    ("How the numbers are made", "That month's average",
+     "What's normal for that month: comparing each hour with its own month takes out the effect of seasons, like "
+     "comparing your July bill with your average July bill."),
+    ("How the numbers are made", "Before / during windows",
+     "For one outage: the 14 days just before it, compared with its first 14 days."),
+    ("How the numbers are made", "Average vs. typical (median)",
+     "The average adds everything up and divides. The typical value (median) is the middle one when you line them "
+     "up. A few huge values pull the average up but not the median."),
+    ("How the numbers are made", "Share of outages vs. share of hours",
+     "Two ways to count the same outages: each outage once, or by how long it lasted. They can tell different "
+     "stories when a few outages are very long."),
+    ("How the numbers are made", "Per year of running",
+     "Counting how often something happens using only the time a reactor was actually running, since a reactor "
+     "in the middle of a rebuild can't break down."),
+    ("How the numbers are made", "Cut-off (threshold)",
+     "A line I chose, like \"under 90% counts as partly running\". Results are re-checked with other lines "
+     "(85%, 95%) to see if they still hold."),
+    ("How the numbers are made", "Cut off by the data",
+     "Events already happening when the data starts (May 2019) or still happening when it ends (Sep 2026). Their "
+     "real length is longer than measured."),
+    ("How the numbers are made", "Linked, not proven",
+     "Two things happening together doesn't mean one caused the other. A heat wave can raise prices whatever "
+     "reactors are doing."),
+    ("About the data", "IESO",
+     "Independent Electricity System Operator: runs Ontario's grid and publishes the hourly data used here."),
+    ("About the data", "EST",
+     "Eastern Standard Time, used all year with no daylight saving shift. \"13:00\" means the hour from 13:00 to 14:00."),
+    ("About the data", "Hourly data",
+     "One number per generator per hour, for every generator of 20 MW or more, May 2019 to September 2026."),
+]
+
+
+def dashboard_page():
+    pass   # the dashboard is the rest of this script, below
+
+
+def definitions_page():
+    st.title("definitions", anchor=False)
+    st.markdown("Every term the dashboard uses, in plain words. Type in the box to search.")
+    search = st.text_input("Search", placeholder="e.g. interties, capability, MWh", label_visibility="collapsed")
+    terms = pd.DataFrame(DEFINITIONS, columns=["Topic", "Term", "What it means"])
+    if search:
+        terms = terms[terms.apply(lambda row: search.lower() in " ".join(row).lower(), axis=1)]
+    with st.container(width=1100):
+        for topic, group in terms.groupby("Topic", sort=False):
+            st.subheader(topic, anchor=False)
+            rows = "".join(f"| **{t}** | {m.replace('$', chr(92) + '$')} |\n" for t, m in zip(group.Term, group["What it means"]))
+            st.markdown("| Term | What it means |\n|---|---|\n" + rows)
+        if terms.empty:
+            st.caption("No matching terms.")
+
+
+# Two pages as tabs along the top. The definitions page needs no data, so it stops before the database loads.
+page = st.navigation([st.Page(dashboard_page, title="Dashboard", default=True),
+                      st.Page(definitions_page, title="Definitions")], position="top")
+page.run()
+if page.title == "Definitions":
+    st.stop()
 
 # Chart colours must read on both themes: switching theme doesn't rerun this script, so nothing here
 # can depend on which theme is showing. Axis text is left to Streamlit, which recolours it instantly.
@@ -53,14 +204,29 @@ def adds_up(parts, missing_label, missing_mw, value_title):
     bars(labels, values, [DIM] * len(parts) + [DIM, LIGHT, ACCENT], "Source", value_title)
 
 
+def sql_file(number):
+    return next(Path("queries").glob(f"{number}_*.sql")).read_text(encoding="utf-8")
+
+
 # Streamlit reruns this whole script on every click; caching keeps one open connection.
-# read_only so the app can run while the DuckDB CLI has the database open too.
 @st.cache_resource
 def connect():
+    path = Path("data/nuclear.duckdb")
     # The database isn't in git (too big); on a fresh copy, e.g. the hosted app, build it from data/clean.
-    if not Path("data/nuclear.duckdb").exists():
+    if not path.exists():
         runpy.run_path("scripts/build_db.py", run_name="__main__")
-    return duckdb.connect("data/nuclear.duckdb", read_only=True)
+    # Read the file read-only through an in-memory database: read-only never clashes with other open
+    # connections (the DuckDB CLI, or an older version of this app still running after an update).
+    con = duckdb.connect()
+    con.execute(f"ATTACH '{path.as_posix()}' AS src (READ_ONLY)")
+    tables = [t for (t,) in con.sql("SELECT table_name FROM duckdb_tables() WHERE database_name = 'src'").fetchall()]
+    for table in tables:
+        con.execute(f"CREATE VIEW {table} AS SELECT * FROM src.{table}")
+    # A database built before Goal 5 lacks the operating-state tables: build them in memory (~6 s), not in the file.
+    if "unit_events" not in tables:
+        for number in ["15", "16"]:
+            con.execute(sql_file(number))
+    return con
 
 
 con = connect()
@@ -69,7 +235,13 @@ con = connect()
 # The findings come straight from the project's SQL files, so the page always matches them.
 @st.cache_data
 def query(number):
-    return con.sql(next(Path("queries").glob(f"{number}_*.sql")).read_text(encoding="utf-8")).df()
+    return con.sql(sql_file(number)).df()
+
+
+@st.cache_data
+def query_all(number):
+    # Files with several results: strip comments first (they can contain ';'), then run each statement.
+    return [con.sql(s).df() for s in re.sub(r"--[^\n]*", "", sql_file(number)).split(";") if s.strip()]
 
 outages = con.sql("SELECT * FROM outages ORDER BY start_ts").df()
 # Full power per unit = the highest capability it ever reported (same rule as queries/06_outages.sql).
@@ -89,7 +261,7 @@ st.markdown(
     "This page is as much my notes as it is for you, so expect a bit of redundancy. "
     "In nuclear, that's called *defence in depth*."
 )
-st.caption("Light or dark mode: menu at the top right → Settings.")
+st.caption("Light or dark mode: menu at the top right → Settings. Unfamiliar word? See the Definitions tab at the top.")
 # Off: headings are plain text. On: each gets Streamlit's hover link icon, for linking straight to that section.
 LINKS = None if st.toggle("Section links", help="Show a link icon on each heading, to share a link to that section.") \
     else False
@@ -577,10 +749,106 @@ with st.expander("How to read this"):
   Neither is in this number.
 """)
 
-# 4. Goal 5 (not built yet)
+# 4. Goal 5, milestone 1 (queries 15-21)
 st.space("medium")
-st.subheader("4 · reactor manoeuvres: what were the reactors doing?", anchor=LINKS)
+st.subheader("4 · reactor behaviour: what were the reactors doing?", anchor=LINKS)
 st.markdown(
-    "Reading each reactor's own behaviour from the data: telling forced shutdowns from planned ones, "
-    "and spotting reactors running below full power without shutting down. **In progress.**"
+    "I sorted every hour of every Ontario reactor since May 2019 into **\"running normally\"**, **\"off\"**, "
+    "**\"partly running\"** or **\"could run but made less\"**, grouped those hours into events, and used them to "
+    "show how often reactors go down, how long outages last, and how closely their output matches what they said "
+    "they could make."
 )
+by_unit, durations, _ = query_all("18")
+bands, _ = query_all("20")
+budget, _, _ = query_all("21")
+fleet = by_unit[by_unit.unit == "FLEET"].iloc[0]
+station = by_unit.set_index("unit").outages_per_operating_year
+fleet_budget = budget[budget.unit == "FLEET"].iloc[0]
+
+st.markdown(f"**Most of the time, reactors run normally.** Across all 18 reactors, about **{fleet.pct_full:.0f}%** of "
+            f"hours were normal running and **{fleet.pct_offline:.0f}%** were off. Most of that off time is planned "
+            "rebuilds (refurbishments) that take years, not breakdowns.")
+bars(["Running normally", "Off", "Partly running", "Could run but made less"],
+     [fleet.pct_full, fleet.pct_offline, fleet.pct_derated, fleet.pct_under_output],
+     [DIM, ACCENT, DIM, DIM], "State", "Share of all hours, May 2019 to Sep 2026 (%)")
+
+st.markdown(f"**Reactors go down about twice a year.** Counting only the time a reactor was actually running "
+            f"(a reactor in the middle of a 3-year rebuild can't break down), each one has an outage of a day or "
+            f"longer about **{fleet.outages_per_operating_year:.1f} times a year**. That's similar at all three plants: "
+            f"Bruce {station['Bruce (all)']:.1f}, Darlington {station['Darlington (all)']:.1f}, "
+            f"Pickering {station['Pickering (all)']:.1f}.")
+
+long = bands[bands.band.str.startswith("5")].iloc[0]
+st.markdown(f"**A few long outages cause almost all the downtime.** Outages longer than 2 months are only "
+            f"**{long.pct_of_events:.0f}%** of all outages, but **{long.pct_of_offline_hours:.0f}%** of all the hours "
+            "reactors were off. Like a store where most customers spend \\$10 but a few spend \\$10,000: the typical "
+            "customer and where the money comes from are two different stories, and both are true.")
+names = {"1. under 6 h": "Under 6 hours", "2. 6-23 h": "6 to 23 hours", "3. 1-7 days": "1 to 7 days",
+         "4. 7-60 days": "1 week to 2 months", "5. over 60 days": "Over 2 months"}
+lengths = pd.concat([
+    pd.DataFrame({"length": bands.band.map(names), "share": bands.pct_of_events, "measure": "Share of outages"}),
+    pd.DataFrame({"length": bands.band.map(names), "share": bands.pct_of_offline_hours, "measure": "Share of hours off"}),
+])
+with st.container(horizontal_alignment="center"):
+    st.altair_chart(style(
+        alt.Chart(lengths).mark_bar().encode(
+            y=alt.Y("length:N", sort=list(names.values()), title="Outage length"),
+            yOffset=alt.YOffset("measure:N"),
+            x=alt.X("share:Q", title="% of all outages, or of all hours off", axis=alt.Axis(tickCount=10)),
+            color=alt.Color("measure:N", title=None, scale=alt.Scale(range=[DIM, ACCENT]),
+                            legend=alt.Legend(orient="bottom")),
+        ).properties(width=520, height=260, autosize=alt.AutoSizeParams(type="pad"),
+                     padding={"left": 60, "right": 30, "top": 10, "bottom": 5})
+    ), width="content")
+
+st.markdown(f"**Reactors make what they say they can make.** When a reactor reports it can make, say, 800 MW, it "
+            f"makes almost exactly that: **{fleet_budget.capability_utilisation_pct:.1f}%** of what was offered, "
+            "across all reactors and years. So nearly all lost power comes from reactors saying they can't run "
+            "(off or partly off), not from reactors that could run but didn't. The little that is lost mostly "
+            "happens in the hours right around a shutdown or restart.")
+
+bruce_night = con.sql("""
+    SELECT hour(timestamp) AS hour,
+           100 * count(*) FILTER (WHERE state = 'UNDER_OUTPUT')
+               / count(*) FILTER (WHERE state NOT IN ('OFFLINE', 'UNKNOWN')) AS pct
+    FROM unit_hours WHERE plant = 'Bruce' GROUP BY 1 ORDER BY 1""").df()
+st.markdown("**Bruce turns down at night.** \"Could run but made less\" happens almost only at Bruce, mostly between "
+            "midnight and 4 a.m., mostly in May and June, and much more in 2019–2020 than since. That fits Bruce "
+            "lowering output at night when Ontario has more power than it needs (spring runoff fills the dams and "
+            "few people are using power). The data shows *when* it happens, not *why*, so this is a likely "
+            "explanation, not a proven one.")
+with st.container(horizontal_alignment="center"):
+    st.altair_chart(style(
+        alt.Chart(bruce_night).mark_line(color=ACCENT, point=True).encode(
+            x=alt.X("hour:O", title="Hour of the day (EST, 0 = midnight)", axis=alt.Axis(labelAngle=0)),
+            y=alt.Y("pct:Q", title="% of Bruce's running hours"),
+        ).properties(width=560, height=220, autosize=alt.AutoSizeParams(type="pad"),
+                     padding={"left": 60, "right": 30, "top": 10, "bottom": 5})
+    ), width="content")
+
+with st.expander("How this was worked out"):
+    st.markdown(f"""
+- **The four labels.** Every hour, IESO reports two numbers per reactor: how much it *could* make (capability) and
+  how much it *did* make (output). Each hour gets one label:
+  - **Off:** the reactor reported it can't run at all (capability 0).
+  - **Partly running:** it reported it can only run part of the way (capability below 90% of its full power).
+  - **Could run but made less:** it said it could run fully, but made less than 90% of that.
+  - **Running normally:** everything else.
+  A fifth label, "unknown", covers the few hours with missing data (69 hours out of 1.16 million).
+- **What "full power" means.** Each reactor is compared with its own top power at the time, because reactors get
+  upgraded (Bruce 1 went from 779 MW in 2019 to 828 MW in 2024). Comparing 2019 with the 2024 figure would make
+  2019 look worse than it was.
+- **Events.** Hours in a row with the same label become one event, e.g. "Bruce 1 was partly running for 37 hours
+  from March 3". That's how outages are counted and measured.
+- **Checking the answers.** Some lines are my choice, like "below 90% counts as partly running". So everything was
+  re-run with 85% and 95% and with a different meaning of "full power". These held up every time: how much time
+  reactors spend off, how often they go down, how closely output matches capability, and Bruce's night-time cuts.
+  One didn't: which plant runs "partly" the most (Pickering at 90%, Darlington at 95%), so it isn't claimed here.
+- **What this can't tell you.** Why any of it happened. The data shows what reactors reported and produced, not
+  what went on inside them.
+- Full details, tables and the checks: [the Goal 5 report](https://github.com/danielzhang122/ontario-nuclear-dashboard/blob/main/reports/goal5_milestone1.md).
+""")
+
+st.markdown("**Still to come:** how quickly reactors get back to full power after an outage, telling planned "
+            "shutdowns apart from unexpected ones, and whether several reactors at the same plant tend to go down "
+            "together.")
