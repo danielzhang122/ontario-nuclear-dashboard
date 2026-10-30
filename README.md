@@ -81,6 +81,7 @@ The DuckDB CLI (`winget install DuckDB.cli`) must be the same version as `duckdb
 | `generation` | 11.8M | output and capability per unit per hour |
 | `refurbishments` | 13 | announced refurbishments/shutdowns, with sources ([reference/](reference/refurbishments.csv)) |
 | `interties` | 68.6k | Ontario's total imports, exports and net flow per hour |
+| `prices` | 57.7k | wholesale price per hour ($/MWh); `price_type` = HOEP (until Apr 2025) or DA_OZP (from Jul 31, 2026) |
 | `outages` | 206 | detected outages, built by [06_outages.sql](queries/06_outages.sql) |
 
 **Interties** are the high-voltage power lines that connect Ontario's grid to its neighbours: Quebec, New York, Michigan, Manitoba and Minnesota (14 lines in total). Power can flow across them in either direction. Ontario **imports** when it needs more than it generates, and **exports** when it has extra. In `net_flow_mw`, positive means Ontario exported more than it imported that hour.
@@ -89,4 +90,5 @@ The DuckDB CLI (`winget install DuckDB.cli`) must be the same version as `duckdb
 
 - [IESO Generator Output and Capability](https://reports-public.ieso.ca/public/GenOutputCapabilityMonth/): generators of 20 MW or more; small local generators like rooftop solar aren't included
 - [IESO Intertie Schedule and Flow](https://reports-public.ieso.ca/public/IntertieScheduleFlowYear/): hourly imports and exports, 2019 →
+- Prices: [HOEP](https://reports-public.ieso.ca/public/PriceHOEPPredispOR/) (old market, to Apr 2025) and [day-ahead Ontario Zonal Price](https://reports-public.ieso.ca/public/DAHourlyOntarioZonalPrice/) (new market). IESO only keeps ~90 days of the new price online, so there's no public data for May 2025 to Jul 2026
 - Refurbishment dates: OPG, Bruce Power and news sources, linked per row
