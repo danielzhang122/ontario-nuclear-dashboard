@@ -20,7 +20,8 @@ def style(chart):
     # Larger, flat axis text than Streamlit's defaults. The monospace fallback has the same character width
     # as IBM Plex Mono, so labels measured before the web font loads still get the right amount of room.
     mono = "IBM Plex Mono, monospace"
-    return (chart.configure_axis(labelFont=mono, titleFont=mono, labelFontSize=14, titleFontSize=14,
+    # Draw as SVG instead of a canvas bitmap, so rotated axis titles stay sharp.
+    return (chart.properties(usermeta={"embedOptions": {"renderer": "svg"}}).configure_axis(labelFont=mono, titleFont=mono, labelFontSize=14, titleFontSize=14,
                                  labelLimit=0, titleLimit=0, titleFontWeight=600)
             .configure_legend(labelFontSize=14, labelLimit=0))
 
@@ -80,7 +81,7 @@ rated = dict(con.sql("""
 """).fetchall())
 
 # --- Intro ---
-st.title("ontario nuclear outages")
+st.title("ontario nuclear outages", anchor=False)
 st.markdown(
     "I've spent 10+ months as an intern helping build tooling for the Pickering nuclear refurbishment, "
     "which got me curious about how much Ontario's grid leans on nuclear, and what happens when a reactor "
@@ -89,6 +90,9 @@ st.markdown(
     "In nuclear, that's called *defence in depth*."
 )
 st.caption("Light or dark mode: menu at the top right → Settings.")
+# Off: headings are plain text. On: each gets Streamlit's hover link icon, for linking straight to that section.
+LINKS = None if st.toggle("Section links", help="Show a link icon on each heading, to share a link to that section.") \
+    else False
 st.markdown(
     "Ontario gets much of its electricity from **18 nuclear reactors** at three plants: "
     "Bruce, Darlington and Pickering. This page finds every time one of them was switched off "
@@ -183,7 +187,7 @@ whole length, plus the ramp-up.
 
 # --- Daily energy by plant, plus totals ---
 st.space("medium")
-st.header("nuclear generation over time")
+st.header("nuclear generation over time", anchor=LINKS)
 
 
 @st.cache_data
@@ -242,7 +246,7 @@ st.caption(
 
 # --- Every outage ---
 st.space("medium")
-st.header("all outages")
+st.header("all outages", anchor=LINKS)
 TIPS = {
     "generator_name": "Plant + unit number, e.g. DARLINGTON-G4 = Darlington unit 4.",
     "plant": "Bruce, Darlington or Pickering.",
@@ -276,7 +280,7 @@ st.dataframe(
 
 # --- One outage up close ---
 st.space("medium")
-st.header("outage explorer")
+st.header("outage explorer", anchor=LINKS)
 st.caption("Pick an outage. The boxes summarise it; the chart shows that reactor from "
            "3 days before it went off to 7 days after it came back.")
 
@@ -353,7 +357,7 @@ st.caption(
 
 # --- This outage's effect on the grid (queries 10, 12, 14) ---
 st.space("medium")
-st.subheader("what this outage did to the grid")
+st.subheader("what this outage did to the grid", anchor=LINKS)
 
 
 def this_outage(df):
@@ -440,7 +444,7 @@ with st.expander("How this was worked out"):
 
 # --- Findings across all hours (queries 09, 11, 13) ---
 st.space("medium")
-st.header("findings across every hour")
+st.header("findings across every hour", anchor=LINKS)
 st.markdown(
     "One outage at a time is noisy. These findings use **every hour since May 2019** instead: each hour is "
     "compared with what's usual for its own month, and the hours are sorted by how much nuclear power was "
@@ -473,7 +477,7 @@ GROUPS_TITLE = "Hours grouped by nuclear"
 energy_all = query("09").set_index("nuclear_level")
 eb = energy_all.loc["below monthly average"]
 st.space("medium")
-st.subheader("1 · energy: what replaces the missing power")
+st.subheader("1 · energy: what replaces the missing power", anchor=LINKS)
 st.markdown(
     f"When nuclear runs **{-eb.nuclear_vs_usual_mw:,.0f} MW below** its average for that month, Ontario's other plants make "
     f"**{eb.non_nuclear_vs_usual_mw:+,.0f} MW** (mostly gas, **{eb.gas_vs_usual_mw:+,.0f} MW**), net imports are "
@@ -512,7 +516,7 @@ with st.expander("How to read this"):
 price_all = query("11").set_index("nuclear_level")
 pb = price_all.loc["below monthly average"]
 st.space("medium")
-st.subheader("2 · price: does electricity get more expensive?")
+st.subheader("2 · price: does electricity get more expensive?", anchor=LINKS)
 st.markdown(
     f"Yes, a little. In hours when nuclear capability is **{-pb.nuclear_capability_vs_usual_mw:,.0f} MW below** its "
     f"average for that month, the wholesale price is **{pb.price_vs_usual_cad_mwh:+.2f} \\$/MWh** compared with that "
@@ -546,7 +550,7 @@ co2_all = query("13").set_index("nuclear_level")
 cb = co2_all.loc["below monthly average"]
 factor = con.sql("SELECT value, low, high, source FROM assumptions WHERE name = 'gas_emissions_factor'").df().iloc[0]
 st.space("medium")
-st.subheader("3 · CO2: how much extra pollution?")
+st.subheader("3 · CO2: how much extra pollution?", anchor=LINKS)
 st.markdown(
     f"When nuclear is **{-cb.nuclear_capability_vs_usual_mw:,.0f} MW below** its average for that month, gas runs "
     f"**{cb.gas_vs_usual_mw:+,.0f} MW** above its own average for that month, releasing about **{cb.extra_co2_t_per_h:,.0f} t of extra CO2 every hour** "
@@ -572,3 +576,11 @@ with st.expander("How to read this"):
   across the border, and when Ontario exports less, neighbours may burn more themselves.
   Neither is in this number.
 """)
+
+# 4. Goal 5 (not built yet)
+st.space("medium")
+st.subheader("4 · reactor manoeuvres: what were the reactors doing?", anchor=LINKS)
+st.markdown(
+    "Reading each reactor's own behaviour from the data: telling forced shutdowns from planned ones, "
+    "and spotting reactors running below full power without shutting down. **In progress.**"
+)
