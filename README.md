@@ -33,7 +33,7 @@ Throughout, it documents what hourly data can't tell you, and marks inferred eve
 - [x] **Goal 3:** price impact, overall ([11](queries/11_price_vs_usual.sql)) and per outage ([12](queries/12_price_per_outage.sql))
 - [x] **Goal 4:** CO2 impact, overall ([13](queries/13_co2_vs_usual.sql)) and per outage ([14](queries/14_co2_per_outage.sql)); the emissions factor is in [reference/assumptions.csv](reference/assumptions.csv)
 - [ ] **Goal 5:** reactor manoeuvres (in progress: ramp-up time done)
-- [ ] **Goal 6:** front end (Streamlit web app)
+- [ ] **Goal 6:** front end (Streamlit web app, in progress: [app.py](app.py) has the outage explorer and the energy, price and CO2 findings)
 - [ ] **Goal 7 (tentative):** automatic daily data updates with a scheduled job, e.g. GitHub Actions (after the front end is online)
 - [ ] Stretch: plain-English questions → SQL, in the front end
 
@@ -75,6 +75,7 @@ pip install -r requirements.txt
 python scripts/ingest.py       # download + clean IESO data
 python scripts/build_db.py     # build data/nuclear.duckdb
 duckdb -readonly data/nuclear.duckdb
+streamlit run app.py           # the web app, at http://localhost:8501
 ```
 
 The DuckDB CLI is a separate install ([duckdb.org/docs/installation](https://duckdb.org/docs/installation/), or `brew install duckdb` on macOS, `winget install DuckDB.cli` on Windows). It must be the same version as, or newer than, the `duckdb` package in requirements.txt.
