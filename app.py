@@ -9,9 +9,11 @@ import streamlit as st
 
 st.set_page_config(page_title="ontario nuclear outages", layout="wide")
 
+# Chart colours must read on both themes: switching theme doesn't rerun this script, so nothing here
+# can depend on which theme is showing. Axis text is left to Streamlit, which recolours it instantly.
 ACCENT = "#e5484d"   # matches .streamlit/config.toml and the website
 DIM = "#6b6b6b"
-LIGHT = "#bdbdbd"    # the "added up" total bar
+LIGHT = "#a3a3a3"    # the "added up" bar and the all-plants line: lighter than DIM, visible on black and white
 
 
 def style(chart):
@@ -86,6 +88,7 @@ st.markdown(
     "This page is as much my notes as it is for you, so expect a bit of redundancy. "
     "In nuclear, that's called *defence in depth*."
 )
+st.caption("Light or dark mode: menu at the top right → Settings.")
 st.markdown(
     "Ontario gets much of its electricity from **18 nuclear reactors** at three plants: "
     "Bruce, Darlington and Pickering. This page finds every time one of them was switched off "
@@ -219,7 +222,7 @@ st.altair_chart(
         alt.Chart(shown[shown.line.isin(picked_lines)]).mark_line().encode(
             x=alt.X("day:T", title="Date (EST)"),
             y=alt.Y("gwh:Q", title="Energy per day (GWh)"),
-            color=alt.Color("line:N", title=None, legend=alt.Legend(orient="bottom"),
+            color=alt.Color("line:N", title=None, legend=alt.Legend(orient="bottom", offset=0, padding=0),
                             scale=alt.Scale(domain=picked_lines, range=[line_colors[lin] for lin in picked_lines])),
             tooltip=[alt.Tooltip("day:T", title="Date"), alt.Tooltip("line:N", title="Line"),
                      alt.Tooltip("gwh:Q", title="GWh", format=",.1f")],

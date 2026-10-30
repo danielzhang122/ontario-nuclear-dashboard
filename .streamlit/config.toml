@@ -1,19 +1,31 @@
 # Look borrowed from zhangdz.ca (website/css/style.css): near-black, grey ink, one red accent, IBM Plex Mono.
+# Defining both [theme.dark] and [theme.light] gives visitors a Light / Dark switch in the ⋮ menu → Settings.
 [theme]
-base = "dark"
-backgroundColor = "#0b0b0b"
-secondaryBackgroundColor = "#141414"
-textColor = "#d8d8d8"
-primaryColor = "#e5484d"
-linkColor = "#d8d8d8"
-borderColor = "#262626"
 showWidgetBorder = true
 baseRadius = "none"
 font = "IBM Plex Mono:https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap, monospace"
 codeFont = "IBM Plex Mono, monospace"
 baseFontSize = 14
 headingFontWeights = 600
+
+[theme.dark]
+backgroundColor = "#0b0b0b"
+secondaryBackgroundColor = "#141414"
+textColor = "#d8d8d8"
+primaryColor = "#e5484d"
+linkColor = "#d8d8d8"
+borderColor = "#262626"
 chartCategoricalColors = ["#e5484d", "#6b6b6b"]
+
+# The same palette inverted: warm off-white paper, dark ink, the red a touch deeper so it reads on white.
+[theme.light]
+backgroundColor = "#f6f6f4"
+secondaryBackgroundColor = "#ececea"
+textColor = "#1f1f1f"
+primaryColor = "#d93a40"
+linkColor = "#1f1f1f"
+borderColor = "#d6d6d2"
+chartCategoricalColors = ["#d93a40", "#6b6b6b"]
 
 [server]
 headless = true
