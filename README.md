@@ -1,8 +1,8 @@
 # What happens to Ontario's grid when a nuclear reactor goes offline?
 
-I've spent 10+ months as an intern at Eclipse Automation, helping build tooling for the Pickering Nuclear Reactor refurbishment, one of the largest infrastructure projects in Canada. That got me curious about how the work I do affects the way electricity is supplied across Ontario. So I did what any rational person would do: I learned SQL and data analytics to find out.
+I've spent 10+ months as an intern at Eclipse Automation, helping build tooling for the Pickering Nuclear Reactor refurbishment, one of the largest infrastructure projects in Canada. That got me curious about how my work affects the way electricity is supplied across Ontario. So I did what any rational person would do: I learned SQL and data analytics to find out.
 
-Hourly IESO data (May 2019 →) on every Ontario nuclear outage: what filled the gap, what happened to prices, and how much extra CO2 was emitted.
+This project uses hourly IESO data (May 2019 →) to look at every Ontario nuclear outage: what filled the gap, what happened to prices, and how much extra CO2 was emitted.
 
 Built with SQL (DuckDB) and Python. I'm learning SQL as I go; [queries/](queries/) runs from basic `SELECT` up to window functions.
 
@@ -49,7 +49,7 @@ Throughout, it documents what hourly data can't tell you, and marks inferred eve
 
 ## Goal 5: reading reactor manoeuvres from the data
 
-Hourly output and capability can be used to work backwards to what each reactor was doing, with some assumptions: forced shutdowns, ramping back up to full power, or running at reduced power.
+Goals 1–4 ask the standard questions: when did reactors go offline, what replaced them, and what did it cost? But what about the reactors themselves? The data only shows output and capability, but those can reveal what each reactor was actually doing (forced shutdowns, ramping back up to full power, or running at reduced power), with some assumptions.
 
 - **Ramp-up after an outage:** done. `ramp_up_h` in the `outages` table is the time back to 90% of full power.
 - **Forced vs. planned shutdowns:** the drop shape alone isn't enough (planned shutdowns also drop to 0 in about 2 hours), so the plan is to combine other signals:
