@@ -1,5 +1,5 @@
 -- Builds the outages table: one row per period a nuclear unit was unavailable for 24+ hours.
--- "Unavailable" = IESO capability is 0 (or missing) for that hour.
+-- "Unavailable" = IESO capability is 0 for that hour (a missing value is unknown, not off).
 -- label: 'refurbishment' / 'permanent_shutdown' if it overlaps an announced event in the
 --        refurbishments table, otherwise 'other' (routine maintenance or a forced outage;
 --        public data can't tell those apart, and how fast output dropped doesn't either).
@@ -9,13 +9,14 @@
 CREATE OR REPLACE TABLE outages AS
 
 -- STEP 1: flag every nuclear hour as on or off
---   what: one row per nuclear unit per hour, with is_off = true when its capability is 0 or missing
+--   what: one row per nuclear unit per hour, with is_off = true when its capability is 0
+--         (missing capability gives is_off = NULL: unknown, so it ends an outage instead of extending one)
 --   why:  capability 0 means IESO itself says the unit can't run, which is a cleaner signal than output
 WITH hourly AS (
     SELECT g.generator_name,
            u.plant,
            g.timestamp,
-           coalesce(g.capability_mw, 0) = 0 AS is_off
+           g.capability_mw = 0 AS is_off
     FROM generation AS g
     JOIN generators AS u ON g.generator_name = u.generator_name
     WHERE u.fuel_type = 'NUCLEAR'
@@ -23,13 +24,17 @@ WITH hourly AS (
 
 -- STEP 2: find the first hour of each outage
 --   what: starts_here = true when the unit is off this hour but was NOT off the hour before
---         (lag() looks at the previous hour of the same unit; coalesce treats the unit's first hour as "was on")
+--         (lag() looks at the previous row of the same unit; it only counts as "the hour before" if it really
+--          is 1 hour earlier, so a gap in the data starts a new outage instead of silently joining two)
 --   why:  every outage begins with exactly one of these hours, so they mark where outages start
 marked AS (
     SELECT *,
-           is_off AND NOT coalesce(lag(is_off) OVER (PARTITION BY generator_name ORDER BY timestamp), false)
+           coalesce(is_off, false)
+           AND NOT (coalesce(lag(is_off) OVER w, false)
+                    AND lag(timestamp) OVER w = timestamp - INTERVAL 1 HOUR)
                AS starts_here
     FROM hourly
+    WINDOW w AS (PARTITION BY generator_name ORDER BY timestamp)
 ),
 
 -- STEP 3: number the outages
