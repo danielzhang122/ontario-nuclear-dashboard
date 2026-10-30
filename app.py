@@ -2,6 +2,7 @@ import datetime as dt
 import runpy
 from pathlib import Path
 
+import altair as alt
 import duckdb
 import pandas as pd
 import streamlit as st
@@ -10,6 +11,43 @@ st.set_page_config(page_title="ontario nuclear outages", layout="wide")
 
 ACCENT = "#e5484d"   # matches .streamlit/config.toml and the website
 DIM = "#6b6b6b"
+LIGHT = "#bdbdbd"    # the "added up" total bar
+
+
+def style(chart):
+    # Larger, flat axis text than Streamlit's defaults. The monospace fallback has the same character width
+    # as IBM Plex Mono, so labels measured before the web font loads still get the right amount of room.
+    mono = "IBM Plex Mono, monospace"
+    return (chart.configure_axis(labelFont=mono, titleFont=mono, labelFontSize=14, titleFontSize=14,
+                                 labelLimit=0, titleLimit=0, titleFontWeight=600)
+            .configure_legend(labelFontSize=14, labelLimit=0))
+
+
+def bars(labels, values, colors, label_title, value_title):
+    # Sideways bars so labels read normally, centred on the page at a fixed plot width.
+    # autosize "pad": the chart grows to fit its labels instead of squeezing the bars.
+    # Left padding: labels are measured before the web font loads, and the font is a little wider.
+    df = pd.DataFrame({"label": labels, "value": values, "color": colors})
+    chart = alt.Chart(df).mark_bar().encode(
+        # shortcut: Vega under-measures these labels (~40% in testing), so the side title gets extra padding to clear them;
+        # drop titlePadding if a Streamlit/Vega update fixes the measuring.
+        y=alt.Y("label:N", sort=None, title=label_title,
+                axis=alt.Axis(titlePadding=10 + 4 * max(len(lab) for lab in labels))),
+        x=alt.X("value:Q", title=value_title, axis=alt.Axis(tickCount=6)),
+        color=alt.Color("color:N", scale=None),   # each row's own hex color, used as-is
+    ).properties(width=560, height=40 * len(df), autosize=alt.AutoSizeParams(type="pad"),
+                 padding={"left": 60, "right": 30, "top": 10, "bottom": 5})
+    st.space("small")
+    with st.container(horizontal_alignment="center"):
+        st.altair_chart(style(chart), width="content")
+
+
+def adds_up(parts, missing_label, missing_mw, value_title):
+    # parts: (label, MW it helped fill the gap). Then a blank row, the parts' total, and what was missing,
+    # so the reader can see the two bars come out the same length (supply always equals demand).
+    labels = [lab for lab, _ in parts] + [" ", "All of the above, added up", missing_label]
+    values = [mw for _, mw in parts] + [None, sum(mw for _, mw in parts), missing_mw]
+    bars(labels, values, [DIM] * len(parts) + [DIM, LIGHT, ACCENT], "Source", value_title)
 
 
 # Streamlit reruns this whole script on every click; caching keeps one open connection.
@@ -41,6 +79,13 @@ rated = dict(con.sql("""
 
 # --- Intro ---
 st.title("ontario nuclear outages")
+st.markdown(
+    "I've spent 10+ months as an intern helping build tooling for the Pickering nuclear refurbishment, "
+    "which got me curious about how much Ontario's grid leans on nuclear, and what happens when a reactor "
+    "goes offline. So I learned SQL and built this to find out.\n\n"
+    "This page is as much my notes as it is for you, so expect a bit of redundancy. "
+    "In nuclear, thats called *defence in depth*."
+)
 st.markdown(
     "Ontario gets much of its electricity from **18 nuclear reactors** at three plants: "
     "Bruce, Darlington and Pickering. This page finds every time one of them was switched off "
@@ -133,7 +178,67 @@ whole length, plus the ramp-up.
   labelled *other*. Outages cut off by the start or end of the data are flagged in the table.
 """)
 
+# --- Daily energy by plant, plus totals ---
+st.space("medium")
+st.header("nuclear generation over time")
+
+
+@st.cache_data
+def daily_energy():
+    # Each hourly MW value is that hour's average power, so it's also the MWh made in that hour;
+    # adding up a day's hours and dividing by 1,000 gives GWh per day.
+    return con.sql("""
+        WITH daily AS (
+            SELECT date_trunc('day', g.timestamp) AS day, u.fuel_type, u.plant,
+                   sum(g.output_mw) / 1000 AS gwh
+            FROM generation AS g
+            JOIN generators AS u ON g.generator_name = u.generator_name
+            GROUP BY ALL
+        )
+        SELECT day, plant AS line, sum(gwh) AS gwh FROM daily WHERE fuel_type = 'NUCLEAR' GROUP BY ALL
+        UNION ALL
+        SELECT day, 'All nuclear', sum(gwh) FROM daily WHERE fuel_type = 'NUCLEAR' GROUP BY day
+        UNION ALL
+        SELECT day, 'All Ontario power plants', sum(gwh) FROM daily GROUP BY day
+        ORDER BY day
+    """).df()
+
+
+energy_daily = daily_energy()
+first_day, last_day = energy_daily.day.min().date(), energy_daily.day.max().date()
+date_range = st.slider("Dates", first_day, last_day,
+                       (max(first_day, last_day - dt.timedelta(days=365)), last_day), format="YYYY-MM-DD")
+shown = energy_daily[(energy_daily.day.dt.date >= date_range[0]) & (energy_daily.day.dt.date <= date_range[1])]
+line_colors = {"Bruce": "#6fa8dc", "Darlington": "#93c47d", "Pickering": "#e0a458",
+               "All nuclear": ACCENT, "All Ontario power plants": LIGHT}
+# Hidden lines are dropped from the data, so the y-axis rescales to whatever is left.
+picked_lines = st.pills("Lines", list(line_colors), selection_mode="multi", default=list(line_colors)) or []
+picked_lines = [lin for lin in line_colors if lin in picked_lines]   # keep a fixed order for the legend
+st.altair_chart(
+    style(
+        alt.Chart(shown[shown.line.isin(picked_lines)]).mark_line().encode(
+            x=alt.X("day:T", title="Date (EST)"),
+            y=alt.Y("gwh:Q", title="Energy per day (GWh)"),
+            color=alt.Color("line:N", title=None, legend=alt.Legend(orient="bottom"),
+                            scale=alt.Scale(domain=picked_lines, range=[line_colors[lin] for lin in picked_lines])),
+            tooltip=[alt.Tooltip("day:T", title="Date"), alt.Tooltip("line:N", title="Line"),
+                     alt.Tooltip("gwh:Q", title="GWh", format=",.1f")],
+        ).properties(height=360).interactive()
+    ),
+    width="stretch",
+)
+nuclear_total = shown[shown.line == "All nuclear"].gwh.sum()
+all_total = shown[shown.line == "All Ontario power plants"].gwh.sum()
+st.caption(
+    f"From {date_range[0]} to {date_range[1]}, Ontario's reactors made **{nuclear_total / 1000:,.2f} TWh**, "
+    f"**{nuclear_total / all_total:.0%}** of the {all_total / 1000:,.2f} TWh from all its power plants. "
+    "GWh (gigawatt-hour) = 1,000 MWh; TWh = 1,000 GWh. A reactor at full power makes about 20 GWh a day. "
+    "\"All Ontario power plants\" counts every generator of 20 MW or more (imports not included). "
+    "Click a line's name above to hide or show it (the scale adjusts). Drag the slider to change the dates; scroll to zoom, double-click to reset."
+)
+
 # --- Every outage ---
+st.space("medium")
 st.header("all outages")
 TIPS = {
     "generator_name": "Plant + unit number, e.g. DARLINGTON-G4 = Darlington unit 4.",
@@ -167,6 +272,7 @@ st.dataframe(
 )
 
 # --- One outage up close ---
+st.space("medium")
 st.header("outage explorer")
 st.caption("Pick an outage. The boxes summarise it; the chart shows that reactor from "
            "3 days before it went off to 7 days after it came back.")
@@ -220,8 +326,19 @@ series = con.execute(
     """,
     [step, o.generator_name, start, end],
 ).df()
-st.line_chart(series, x="Time (EST)", y=["Output (MW)", "Capability (MW)"],
-              color=[ACCENT, DIM], y_label="Power (MW)")
+series.columns = ["time", "Output (what it made)", "Capability (what it could make)"]
+lines = list(series.columns[1:])
+st.altair_chart(
+    style(
+        alt.Chart(series).transform_fold(lines, as_=["line", "mw"]).mark_line().encode(
+            x=alt.X("time:T", title=f"Date (EST{', daily averages' if step == 'day' else ''})"),
+            y=alt.Y("mw:Q", title=f"{o.generator_name} power (MW)"),
+            color=alt.Color("line:N", title=None, scale=alt.Scale(domain=lines, range=[ACCENT, DIM]),
+                            legend=alt.Legend(orient="bottom")),
+        ).properties(height=320).interactive()   # scroll to zoom, drag to pan, double-click to reset
+    ),
+    width="stretch",
+)
 st.caption(
     ("Each point is a daily average (outages over 60 days). " if step == "day" else "Each point is one hour. ")
     + "Capability falling to 0 MW marks the outage. Afterwards, output climbs back toward "
@@ -229,6 +346,7 @@ st.caption(
 )
 
 # --- This outage's effect on the grid (queries 10, 12, 14) ---
+st.space("medium")
 st.subheader("what this outage did to the grid")
 
 
@@ -256,16 +374,18 @@ else:
               help="Extra gas MW × hours × 0.45 t of CO2 per MWh. With a lower/higher emissions factor: "
                    f"{c.extra_co2_t_window_low:,.0f} to {c.extra_co2_t_window_high:,.0f} t. Negative = less gas burned.")
 
-    sources = pd.DataFrame({
-        "Source": ["Other reactors", "Gas", "Hydro", "Wind + solar", "Other", "Net imports", "Demand"],
-        "Change (MW)": [g.other_nuclear_change_mw, g.gas_change_mw, g.hydro_change_mw, g.wind_solar_change_mw,
-                        g.other_change_mw, g.net_imports_change_mw, g.demand_change_mw],
-    })
-    sources["color"] = [ACCENT if s == "Gas" else DIM for s in sources.Source]
-    st.bar_chart(sources, x="Source", y="Change (MW)", color="color", horizontal=True, sort=False)
-    st.caption(f"Each bar: that source's average in the first {g.window_days:g} days of the outage minus the "
-               f"{g.window_days:g} days before. Right of 0 = it produced more. Gas is highlighted because it's "
-               "what creates the extra CO2.")
+    adds_up(
+        [("Other reactors", g.other_nuclear_change_mw), ("Natural gas", g.gas_change_mw),
+         ("Hydro (dams)", g.hydro_change_mw), ("Wind + solar", g.wind_solar_change_mw),
+         ("Other (biofuel)", g.other_change_mw), ("Net imports", g.net_imports_change_mw),
+         ("Lower demand", -g.demand_change_mw)],
+        "Power this reactor lost", g.lost_mw,
+        [f"How much each filled the gap (MW): first {g.window_days:g} days", "of the outage vs. the 14 days before"],
+    )
+    st.caption(f"Each bar: how much that source's average changed, first {g.window_days:g} days of the outage vs. "
+               f"the {g.window_days:g} days before (lower demand counts as filling the gap). Bars left of 0 went the "
+               "other way, e.g. other reactors also dipping. Added up, they always match the power lost, because "
+               "supply has to equal demand.")
     summary = (
         f"When **{o.generator_name}** went offline it lost **{g.lost_mw:,.0f} MW**. "
         f"Gas changed by **{g.gas_change_mw:+,.0f} MW** and net imports by **{g.net_imports_change_mw:+,.0f} MW**, "
@@ -288,15 +408,17 @@ with st.expander("How this was worked out"):
   change, instead of once each.
 - **Why only outages of 7+ days and 200+ MW.** The grid moves by hundreds of MW every day on
   its own (weather, time of day). A short or small outage gets lost in that noise.
-- **Why the bars don't add up neatly to the lost power.** Everything else kept changing too:
-  weather can move demand by ±1,000 MW in two weeks. One outage is an example, not proof;
-  the findings below, over every hour, are what count.
+- **Why some bars go the wrong way.** Everything else kept changing too: weather can move
+  demand by ±1,000 MW in two weeks, and other reactors have their own ups and downs. The
+  total always matches, but how it splits between sources is noisy for a single outage.
+  One outage is an example, not proof; the findings below, over every hour, are what count.
 - **Price** = the average wholesale price in each window. **CO2** = extra gas (MW) × hours in
   the window × 0.45 t of CO2 per MWh of gas power. Not stretched to the full length of
   multi-year outages: two weeks can't stand in for years.
 """)
 
 # --- Findings across all hours (queries 09, 11, 13) ---
+st.space("medium")
 st.header("findings across every hour")
 st.markdown(
     "One outage at a time is noisy. These findings use **every hour since May 2019** instead: each hour is "
@@ -312,8 +434,8 @@ with st.expander("The method behind all three findings"):
 3. **Each hour vs. its own month.** Subtract the month's average from the hour's value.
    Like comparing your July electricity bill with your *average July* bill, not with January's:
    the season is taken out, and what's left is what was unusual about that hour.
-4. **Sort the hours by nuclear** into three groups: **below** (nuclear 500+ MW under its usual
-   level, about one reactor missing), **near** (within 500 MW), **above** (500+ MW over).
+4. **Sort the hours by nuclear** into three groups: **below** (nuclear 500+ MW under its average for that
+   month, about one reactor missing), **near** (within 500 MW), **above** (500+ MW over).
 5. **Average each group.** If gas, prices or CO2 are reliably higher in "below" and lower in
    "above", they move with nuclear.
 
@@ -323,27 +445,30 @@ fake a "low nuclear = low price" link. Capability only drops for real outages.
 """)
 
 LEVELS = ["below monthly average", "near monthly average", "above monthly average"]
-GROUPS = ["below (500+ MW less)", "near", "above (500+ MW more)"]
+GROUPS = ["Nuclear 500+ MW below monthly avg", "Within 500 MW", "Nuclear 500+ MW above monthly avg"]
+GROUPS_TITLE = "Hours grouped by nuclear"
 
 # 1. Energy
 energy_all = query("09").set_index("nuclear_level")
 eb = energy_all.loc["below monthly average"]
+st.space("medium")
 st.subheader("1 · energy: what replaces the missing power")
 st.markdown(
-    f"When nuclear runs **{-eb.nuclear_vs_usual_mw:,.0f} MW below** its usual level, Ontario's other plants make "
+    f"When nuclear runs **{-eb.nuclear_vs_usual_mw:,.0f} MW below** its average for that month, Ontario's other plants make "
     f"**{eb.non_nuclear_vs_usual_mw:+,.0f} MW** (mostly gas, **{eb.gas_vs_usual_mw:+,.0f} MW**), net imports are "
     f"**{eb.net_imports_vs_usual_mw:+,.0f} MW** (mostly Ontario exporting less), and demand is "
     f"**{eb.demand_vs_usual_mw:+,.0f} MW**. Together that covers the whole drop."
 )
-energy = pd.DataFrame({
-    "Source": ["Nuclear", "Gas", "Hydro", "Wind + solar", "Other", "Net imports", "Demand"],
-    "vs. usual (MW)": [eb.nuclear_vs_usual_mw, eb.gas_vs_usual_mw, eb.hydro_vs_usual_mw, eb.wind_solar_vs_usual_mw,
-                       eb.other_vs_usual_mw, eb.net_imports_vs_usual_mw, eb.demand_vs_usual_mw],
-})
-energy["color"] = [ACCENT if s == "Nuclear" else DIM for s in energy.Source]
-st.bar_chart(energy, x="Source", y="vs. usual (MW)", color="color", horizontal=True, sort=False)
+adds_up(
+    [("Natural gas", eb.gas_vs_usual_mw), ("Hydro (dams)", eb.hydro_vs_usual_mw),
+     ("Wind + solar", eb.wind_solar_vs_usual_mw), ("Other (biofuel)", eb.other_vs_usual_mw),
+     ("Net imports", eb.net_imports_vs_usual_mw), ("Lower demand", -eb.demand_vs_usual_mw)],
+    "Nuclear power missing", -eb.nuclear_vs_usual_mw,
+    "How much each filled the gap (MW, vs. that month's average)",
+)
 st.caption(f"Average over the {eb.hours:,.0f} hours when nuclear was 500+ MW below its monthly average. "
-           "Left of 0 = less than usual, right = more.")
+           "Each bar: how far that source was above its monthly average (lower demand counts as filling the gap). "
+           "Added up, they match the missing nuclear power.")
 with st.expander("How to read this"):
     st.markdown(f"""
 - **Supply must equal demand, every second.** The grid is like a bathtub that has to stay at
@@ -365,18 +490,16 @@ with st.expander("How to read this"):
 # 2. Price
 price_all = query("11").set_index("nuclear_level")
 pb = price_all.loc["below monthly average"]
+st.space("medium")
 st.subheader("2 · price: does electricity get more expensive?")
 st.markdown(
-    f"Yes, a little. In hours when nuclear capability is **{-pb.nuclear_capability_vs_usual_mw:,.0f} MW below** usual, "
-    f"the wholesale price is **{pb.price_vs_usual_cad_mwh:+.2f} \\$/MWh** compared with that month's average. "
-    f"When there's more nuclear than usual, it's **{price_all.loc['above monthly average'].price_vs_usual_cad_mwh:+.2f} \\$/MWh**."
+    f"Yes, a little. In hours when nuclear capability is **{-pb.nuclear_capability_vs_usual_mw:,.0f} MW below** its "
+    f"average for that month, the wholesale price is **{pb.price_vs_usual_cad_mwh:+.2f} \\$/MWh** compared with that "
+    f"month's average price. When there's more nuclear than that month's average, it's "
+    f"**{price_all.loc['above monthly average'].price_vs_usual_cad_mwh:+.2f} \\$/MWh**."
 )
-prices_chart = pd.DataFrame({
-    "Nuclear vs. usual": GROUPS,
-    "Price vs. usual ($/MWh)": [price_all.loc[lv].price_vs_usual_cad_mwh for lv in LEVELS],
-    "color": [ACCENT, DIM, DIM],
-})
-st.bar_chart(prices_chart, x="Nuclear vs. usual", y="Price vs. usual ($/MWh)", color="color", sort=False)
+bars(GROUPS, [price_all.loc[lv].price_vs_usual_cad_mwh for lv in LEVELS], [ACCENT, DIM, DIM],
+     GROUPS_TITLE, "Price vs. that month's average ($/MWh)")
 st.caption("Each bar: the average difference from that month's average price, for one group of hours.")
 with st.expander("How to read this"):
     st.markdown("""
@@ -401,20 +524,18 @@ with st.expander("How to read this"):
 co2_all = query("13").set_index("nuclear_level")
 cb = co2_all.loc["below monthly average"]
 factor = con.sql("SELECT value, low, high, source FROM assumptions WHERE name = 'gas_emissions_factor'").df().iloc[0]
+st.space("medium")
 st.subheader("3 · CO2: how much extra pollution?")
 st.markdown(
-    f"When nuclear is **{-cb.nuclear_capability_vs_usual_mw:,.0f} MW below** usual, gas runs **{cb.gas_vs_usual_mw:+,.0f} MW** "
-    f"higher, releasing about **{cb.extra_co2_t_per_h:,.0f} t of extra CO2 every hour** "
+    f"When nuclear is **{-cb.nuclear_capability_vs_usual_mw:,.0f} MW below** its average for that month, gas runs "
+    f"**{cb.gas_vs_usual_mw:+,.0f} MW** above its own average for that month, releasing about **{cb.extra_co2_t_per_h:,.0f} t of extra CO2 every hour** "
     f"({cb.extra_co2_t_per_h_low:,.0f}–{cb.extra_co2_t_per_h_high:,.0f} t depending on the gas plants), "
     f"roughly **{cb.extra_co2_t_per_h * 24:,.0f} t per day**."
 )
-co2_chart = pd.DataFrame({
-    "Nuclear vs. usual": GROUPS,
-    "Extra CO2 (t/h)": [co2_all.loc[lv].extra_co2_t_per_h for lv in LEVELS],
-    "color": [ACCENT, DIM, DIM],
-})
-st.bar_chart(co2_chart, x="Nuclear vs. usual", y="Extra CO2 (t/h)", color="color", sort=False)
-st.caption(f"Extra gas output (MW) × 1 h × {factor.value} t of CO2 per MWh. Negative = less gas burned than usual.")
+bars(GROUPS, [co2_all.loc[lv].extra_co2_t_per_h for lv in LEVELS], [ACCENT, DIM, DIM],
+     GROUPS_TITLE, "Extra CO2 from gas vs. that month's average (t/h)")
+st.caption(f"Extra gas output (MW) × 1 h × {factor.value} t of CO2 per MWh. "
+           "Negative = less gas burned than that month's average.")
 with st.expander("How to read this"):
     st.markdown(f"""
 - **Running reactors make almost no CO2; gas plants do.** Burning natural gas to make
