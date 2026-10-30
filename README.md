@@ -38,7 +38,7 @@ Throughout, it documents what hourly data can't tell you, and marks inferred eve
 - [x] **Goal 2:** replacement supply, overall ([09](queries/09_supply_vs_usual_with_imports.sql)) and per outage ([10](queries/10_what_filled_the_gap_per_outage.sql)); Goals 3–4 build on 10
 - [x] **Goal 3:** price impact, overall ([11](queries/11_price_vs_usual.sql)) and per outage ([12](queries/12_price_per_outage.sql))
 - [x] **Goal 4:** CO2 impact, overall ([13](queries/13_co2_vs_usual.sql)) and per outage ([14](queries/14_co2_per_outage.sql)); the emissions factor is in [reference/assumptions.csv](reference/assumptions.csv)
-- [ ] **Goal 5:** reactor manoeuvres (in progress: ramp-up time done)
+- [ ] **Goal 5:** reactor manoeuvres (in progress: milestone 1 done: hourly operating states, events and the first findings, see [the report](reports/goal5_milestone1.md))
 - [x] **Goal 6:** front end: [Streamlit app](https://nuclear-dashboard.streamlit.app/) ([app.py](app.py)), see [The dashboard](#the-dashboard)
 - [ ] **Goal 7 (tentative):** automatic daily data updates with a scheduled job, e.g. GitHub Actions
 - [ ] Stretch: plain-English questions → SQL, in the front end
@@ -69,7 +69,21 @@ Goals 1–4 ask the standard questions: when did reactors go offline, what repla
   4. **External labels.** A `known_outages` table built only from sourced public records (OPG and Bruce Power releases and reports, refurbishment timelines, IESO reliability outlooks).
 
   Each outage will be labelled **planned**, **likely forced** or **unknown**, with a confidence level and the reasons. Sourced matches take priority. "Likely forced" means inferred from the data, not confirmed.
-- **Running at reduced power without shutting down** (e.g. Bruce cutting output on windy, low-demand nights): not done yet.
+- **Running at reduced power without shutting down** (e.g. Bruce cutting output on windy, low-demand nights): measured in milestone 1 (below).
+
+### Milestone 1: operating states and events
+
+Every nuclear unit-hour gets an **observed electrical state** ([15](queries/15_unit_states.sql) → `unit_hours`), compared with the unit's rating at the time (highest capability over its last 720 operating hours, so uprates and long outages are handled):
+`OFFLINE` (capability reported 0), `DERATED` (capability below 90% of the rating), `UNDER_OUTPUT` (capability near full, output below 90% of it), `FULL`, `UNKNOWN` (missing data).
+Consecutive same-state hours become events ([16](queries/16_unit_events.sql) → `unit_events`), with censoring and data-quality flags. These describe what was reported and generated, not reactor conditions or causes.
+
+Findings so far ([full report](reports/goal5_milestone1.md), regenerate with `python scripts/goal5_report.py`):
+- Data checks: no missing capability and no timestamp gaps in the data; the outage query now handles both correctly anyway, and the 206 outages are unchanged
+- The fleet was at full output 71% of the time and offline 26%, mostly refurbishments. About 2.1 outages of 24 h+ per operating unit-year (unit-level bootstrap 95% interval 1.8-2.4), similar at all three stations
+- Outages over 60 days are 17% of offline events but 86% of offline hours: a typical offline event is short (median 116 h), but long ones dominate downtime
+- Output follows reported capability closely (99.8% capability utilisation). Nearly all lost energy is the unit reporting it can't run, not running below what it offered
+- Running below offered capability (`UNDER_OUTPUT`) is almost only Bruce (5,557 of 5,589 hours), mostly overnight and in May-June, and far more common in 2019-2020. Consistent with deliberate reductions on surplus nights, but the data can't show the cause
+- Robust to thresholds and the reference choice: % offline, outage rate, availability, Bruce's under-output. Not robust: which station derates most (Pickering at 90%, Darlington at 95%)
 
 ## The dashboard
 
@@ -93,6 +107,7 @@ source .venv/bin/activate      # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python scripts/ingest.py       # download + clean IESO data
 python scripts/build_db.py     # build data/nuclear.duckdb
+python tests/test_events.py    # edge-case tests for the outage and state SQL
 duckdb -readonly data/nuclear.duckdb
 streamlit run app.py           # the web app, at http://localhost:8501
 ```
@@ -112,6 +127,8 @@ The DuckDB CLI is a separate install ([duckdb.org/docs/installation](https://duc
 | `prices` | 57.7k | wholesale price per hour ($/MWh); `price_type` = HOEP (until Apr 2025) or DA_OZP (from Jul 31, 2026) |
 | `assumptions` | 1 | every assumed (not measured) number, with its source: the gas emissions factor, 0.45 tCO2e/MWh ([reference/](reference/assumptions.csv)) |
 | `outages` | 206 | detected outages, built by [06_outages.sql](queries/06_outages.sql) |
+| `unit_hours` | 1.16M | each nuclear unit-hour with its rating at the time and an operating state, built by [15_unit_states.sql](queries/15_unit_states.sql) |
+| `unit_events` | 3.1k | runs of consecutive same-state hours, with censoring and data-quality flags, built by [16_unit_events.sql](queries/16_unit_events.sql) |
 
 **Interties** are the high-voltage power lines that connect Ontario's grid to its neighbours: Quebec, New York, Michigan, Manitoba and Minnesota (14 lines in total). Power can flow across them in either direction. Ontario **imports** when it needs more than it generates, and **exports** when it has extra. In `net_flow_mw`, positive means Ontario exported more than it imported that hour.
 
