@@ -283,7 +283,10 @@ def describe(i):
     return f"{o.generator_name} · {o.start_ts:%Y-%m-%d} · {o.duration_days} days · {o.label}"
 
 
-picked = st.selectbox("Outage", outages.index, format_func=describe)
+# Open on Darlington 4's 2023 refurbishment (the README's example), which has every section filled in.
+example = outages.index[(outages.generator_name == "DARLINGTON-G4") & (outages.label == "refurbishment")]
+picked = st.selectbox("Outage", outages.index, format_func=describe,
+                      index=list(outages.index).index(example[0]) if len(example) else 0)
 o = outages.loc[picked]
 has_ramp = not pd.isna(o.ramp_up_h)
 
@@ -357,9 +360,21 @@ def this_outage(df):
 gap, price, co2 = this_outage(query("10")), this_outage(query("12")), this_outage(query("14"))
 
 if gap.empty:
-    st.caption("Not measured for this outage: only outages of 7+ days where the reactor lost 200+ MW are "
-               f"({len(query('10'))} of {len(outages)}). Shorter or smaller ones are drowned out by the grid's "
-               "normal ups and downs.")
+    # Same order as query 10's filters, so the reason shown is the first one that ruled it out.
+    if o.started_before_data or o.start_ts - dt.timedelta(days=14) < energy_daily.day.min():
+        reason = ("it started before (or within 14 days of) the start of the data in May 2019, so there "
+                  "are no 14 days beforehand to compare against")
+    elif o.duration_days < 7:
+        reason = f"it lasted {o.duration_days} days, under the 7-day minimum"
+    else:
+        reason = ("the reactor wasn't producing much in the 14 days before (it lost under 200 MW on average), "
+                  "usually because it had only just restarted from an earlier outage")
+    st.markdown(f"**Not measured for this outage:** {reason}.")
+    st.caption(
+        f"Only {len(query('10'))} of the {len(outages)} outages are measured. To be measured, an outage has to: "
+        "(1) have 14 days of data before it, to compare against; (2) last at least 7 days; and (3) take away at "
+        "least 200 MW. Anything shorter or smaller gets drowned out by the grid's normal ups and downs."
+    )
 else:
     g, c = gap.iloc[0], co2.iloc[0]
     p = None if price.empty else price.iloc[0]
@@ -394,6 +409,9 @@ else:
     if p is not None:
         summary += (f" The price went from **\\${p.price_before_cad_mwh:.2f}** to "
                     f"**\\${p.price_during_cad_mwh:.2f}/MWh**.")
+    else:
+        summary += (" There's no price for this one: no public prices exist for May 2025 – July 2026, and "
+                    "windows that cross from the old market into the new one are left out.")
     more = "more" if c.extra_co2_t_window >= 0 else "less"
     summary += f" Gas released about **{abs(c.extra_co2_t_window):,.0f} t** {more} CO2 over {c.window_days:g} days."
     st.markdown(summary)
