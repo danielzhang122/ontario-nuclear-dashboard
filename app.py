@@ -260,7 +260,8 @@ st.markdown(
     "goes offline. Like any completely well-adjusted and mentally sane person, I started teaching myself SQL, data "
     "analytics, and quantitative research just to figure this out.\n\n"
     "This page is as much my notes as it is for you, so expect a bit of redundancy. "
-    "In nuclear, that's called *defence in depth*."
+    "In nuclear, that's called *defence in depth*.\n\n"
+    "More of what I build: [zhangdz.ca](https://zhangdz.ca)"
 )
 st.caption("Light or dark mode: menu at the top right → Settings. Unfamiliar word? See the Definitions tab at the top.")
 # Off: headings are plain text. On: each gets Streamlit's hover link icon, for linking straight to that section.
