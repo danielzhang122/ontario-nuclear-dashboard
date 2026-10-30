@@ -257,7 +257,8 @@ st.title("ontario nuclear outages", anchor=False)
 st.markdown(
     "I've spent 10+ months as an intern helping build tooling for the Pickering nuclear refurbishment, "
     "which got me curious about how much Ontario's grid leans on nuclear, and what happens when a reactor "
-    "goes offline. So I started learning SQL and data analytics, and built this to find out.\n\n"
+    "goes offline. So I did what any rational, mentally sane person would do: I started learning SQL, data "
+    "analytics and quantitative research, and built this to find out.\n\n"
     "This page is as much my notes as it is for you, so expect a bit of redundancy. "
     "In nuclear, that's called *defence in depth*."
 )
