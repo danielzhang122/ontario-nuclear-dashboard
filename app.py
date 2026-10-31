@@ -1094,5 +1094,5 @@ with st.expander("How this was worked out"):
 """)
 
 st.markdown("**Still to come:** how quickly reactors get back to full power after an outage, telling planned "
-            "shutdowns apart from unexpected ones, and whether several reactors at the same plant tend to go down "
-            "together.")
+            "shutdowns apart from unexpected ones, whether several reactors at the same plant tend to go down "
+            "together, and predicting outages before they happen.")
