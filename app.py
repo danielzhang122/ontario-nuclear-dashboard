@@ -457,7 +457,7 @@ st.markdown(
 st.markdown('<div id="project-goals" class="anchor"></div>', unsafe_allow_html=True)
 with st.expander("Project goals"):
     st.markdown("""
-The project is built as a list of goals, each answering one question. The small grey tag under
+This project is built as a list of goals, each answering one question. The small grey tag under
 each heading below says which goal that part of the page belongs to. Click a place in the last column to jump
 to it, and click a grey tag to come back here. (Goals 6 and 7 are left out:
 they're about building and running this website, not questions about the grid.)
