@@ -38,7 +38,7 @@ This project takes every hour of Ontario's public electricity data since May 201
 - [x] **Goal 6:** the [dashboard](https://nuclear-dashboard.streamlit.app/)
 - [ ] **Goal 7 (maybe):** update the data automatically every day
 
-Coming next in Goal 5: how quickly reactors get back to full power after an outage, telling planned shutdowns apart from unexpected ones (using public records from OPG, Bruce Power and the IESO), and whether several reactors at the same plant tend to go down together.
+Coming next in Goal 5: how quickly reactors get back to full power after an outage, telling planned shutdowns apart from unexpected ones (using public records from OPG, Bruce Power and the IESO), whether several reactors at the same plant tend to go down together, and whether outages can be predicted before they happen (for example from warning signs like a reactor running at reduced power in the days before).
 
 ## How it's built
 
