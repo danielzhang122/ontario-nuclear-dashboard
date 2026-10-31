@@ -465,11 +465,14 @@ they're about building and running this website, not questions about the grid.)
 | Goal | Question | Status | Where on this page |
 |---|---|---|---|
 | 1 | When did reactors go offline? | Done | [All outages](#all-outages), [Outage explorer](#outage-explorer) |
-| 2 | What filled the gap? | Done | [What this outage did to the grid](#outage-grid); [1 · energy](#energy) |
-| 3 | Did prices go up? | Done | [What this outage did to the grid](#outage-grid); [2 · price](#price) |
+| 2 | What filled the gap? | Done | [1 · energy](#energy) |
+| 3 | Did prices go up? | Done | [2 · price](#price) |
 | 3.5 | Why did prices go up so little? | Backlog | (not yet) |
-| 4 | How much extra CO2? | Done | [What this outage did to the grid](#outage-grid); [3 · CO2](#co2) |
+| 4 | How much extra CO2? | Done | [3 · CO2](#co2) |
 | 5 | What were the reactors themselves doing, and can outages be predicted? | In progress | [4 · reactor behaviour](#reactor-behaviour) |
+
+Goals 2, 3 and 4 are also shown for one outage at a time, in
+[what this outage did to the grid](#outage-grid).
 """)
 
 # --- The guide: depth for whoever wants it, out of the way for whoever doesn't ---
@@ -561,7 +564,7 @@ whole length, plus the ramp-up.
 # --- Daily energy by plant, plus totals ---
 st.space("medium")
 st.header("nuclear generation over time", anchor=False)
-st.caption("Background: the data every goal is built on")
+st.caption("Background")
 
 
 @st.cache_data
@@ -622,7 +625,7 @@ st.caption(
 st.space("medium")
 st.markdown('<div id="all-outages" class="anchor"></div>', unsafe_allow_html=True)
 st.header("all outages", anchor=False)
-st.caption("[Goal 1 · when did reactors go offline?](#project-goals)", help="Back to the project goals table")
+st.caption("[Goal 1](#project-goals)", help="Back to the project goals table")
 TIPS = {
     "generator_name": "Plant + unit number, e.g. DARLINGTON-G4 = Darlington unit 4.",
     "plant": "Bruce, Darlington or Pickering.",
@@ -658,7 +661,7 @@ st.dataframe(
 st.space("medium")
 st.markdown('<div id="outage-explorer" class="anchor"></div>', unsafe_allow_html=True)
 st.header("outage explorer", anchor=False)
-st.caption("[Goal 1 · one outage up close](#project-goals)", help="Back to the project goals table")
+st.caption("[Goal 1](#project-goals)", help="Back to the project goals table")
 st.caption("Pick an outage. The boxes summarise it; the chart shows that reactor from "
            "3 days before it went off to 7 days after it came back.")
 
@@ -737,7 +740,7 @@ st.caption(
 st.space("medium")
 st.markdown('<div id="outage-grid" class="anchor"></div>', unsafe_allow_html=True)
 st.subheader("what this outage did to the grid", anchor=False)
-st.caption("[Goals 2, 3 and 4 · for this one outage](#project-goals)", help="Back to the project goals table")
+st.caption("[Goals 2, 3 and 4](#project-goals)", help="Back to the project goals table")
 
 
 def this_outage(df):
@@ -840,7 +843,7 @@ st.markdown(
 st.space("medium")
 st.markdown('<div id="findings" class="anchor"></div>', unsafe_allow_html=True)
 st.header("findings across every hour", anchor=False)
-st.caption("[Goals 2 to 5 · across every hour since May 2019](#project-goals)", help="Back to the project goals table")
+st.caption("[Goals 2 to 5](#project-goals)", help="Back to the project goals table")
 st.markdown(
     "One outage at a time is noisy. These findings use **every hour since May 2019** instead: each hour is "
     "compared with what's usual for its own month, and the hours are sorted by how much nuclear power was "
@@ -875,7 +878,7 @@ eb = energy_all.loc["below monthly average"]
 st.space("medium")
 st.markdown('<div id="energy" class="anchor"></div>', unsafe_allow_html=True)
 st.subheader("1 · energy: what replaces the missing power", anchor=False)
-st.caption("[Goal 2 · what filled the gap?](#project-goals)", help="Back to the project goals table")
+st.caption("[Goal 2](#project-goals)", help="Back to the project goals table")
 st.markdown(
     f"When nuclear runs **{-eb.nuclear_vs_usual_mw:,.0f} MW below** its average for that month, Ontario's other plants make "
     f"**{eb.non_nuclear_vs_usual_mw:+,.0f} MW** (mostly gas, **{eb.gas_vs_usual_mw:+,.0f} MW**), net imports are "
@@ -920,7 +923,7 @@ pb = price_all.loc["below monthly average"]
 st.space("medium")
 st.markdown('<div id="price" class="anchor"></div>', unsafe_allow_html=True)
 st.subheader("2 · price: does electricity get more expensive?", anchor=False)
-st.caption("[Goal 3 · did prices go up?](#project-goals)", help="Back to the project goals table")
+st.caption("[Goal 3](#project-goals)", help="Back to the project goals table")
 st.markdown(
     f"Yes, a little. In hours when nuclear capability is **{-pb.nuclear_capability_vs_usual_mw:,.0f} MW below** its "
     f"average for that month, the wholesale price is **{pb.price_vs_usual_cad_mwh:+.2f} \\$/MWh** compared with that "
@@ -960,7 +963,7 @@ factor = con.sql("SELECT value, low, high, source FROM assumptions WHERE name = 
 st.space("medium")
 st.markdown('<div id="co2" class="anchor"></div>', unsafe_allow_html=True)
 st.subheader("3 · CO2: how much extra pollution?", anchor=False)
-st.caption("[Goal 4 · how much extra CO2?](#project-goals)", help="Back to the project goals table")
+st.caption("[Goal 4](#project-goals)", help="Back to the project goals table")
 st.markdown(
     f"When nuclear is **{-cb.nuclear_capability_vs_usual_mw:,.0f} MW below** its average for that month, gas runs "
     f"**{cb.gas_vs_usual_mw:+,.0f} MW** above its own average for that month, releasing about **{cb.extra_co2_t_per_h:,.0f} t of extra CO2 every hour** "
@@ -991,7 +994,7 @@ with st.expander("How to read this"):
 st.space("medium")
 st.markdown('<div id="reactor-behaviour" class="anchor"></div>', unsafe_allow_html=True)
 st.subheader("4 · reactor behaviour: what were the reactors doing?", anchor=False)
-st.caption("[Goal 5 · what were the reactors doing? (in progress)](#project-goals)", help="Back to the project goals table")
+st.caption("[Goal 5](#project-goals)", help="Back to the project goals table")
 st.markdown(
     "I sorted every hour of every Ontario reactor since May 2019 into **\"running normally\"**, **\"off\"**, "
     "**\"partly running\"** or **\"could run but made less\"**, grouped those hours into events, and used them to "
