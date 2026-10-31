@@ -445,6 +445,23 @@ st.markdown(
     "and shows what each reactor did before, during and after."
 )
 
+# --- The project's goals, and where each one shows up on this page (same list as the README) ---
+with st.expander("Project goals"):
+    st.markdown("""
+The project is built as a list of goals, each answering one question. The small grey tag under
+each heading below says which goal that part of the page belongs to. (Goals 6 and 7 are left out:
+they're about building and running this website, not questions about the grid.)
+
+| Goal | Question | Status | Where on this page |
+|---|---|---|---|
+| 1 | When did reactors go offline? | Done | All outages, Outage explorer |
+| 2 | What filled the gap? | Done | What this outage did to the grid; 1 · energy |
+| 3 | Did prices go up? | Done | What this outage did to the grid; 2 · price |
+| 3.5 | Why did prices go up so little? | Backlog | (not yet) |
+| 4 | How much extra CO2? | Done | What this outage did to the grid; 3 · CO2 |
+| 5 | What were the reactors themselves doing, and can outages be predicted? | In progress | 4 · reactor behaviour |
+""")
+
 # --- The guide: depth for whoever wants it, out of the way for whoever doesn't ---
 with st.expander("How to read this page"):
     reactors, power, method, chart, data = st.tabs(
@@ -534,6 +551,7 @@ whole length, plus the ramp-up.
 # --- Daily energy by plant, plus totals ---
 st.space("medium")
 st.header("nuclear generation over time", anchor=False)
+st.caption("Background: the data every goal is built on")
 
 
 @st.cache_data
@@ -593,6 +611,7 @@ st.caption(
 # --- Every outage ---
 st.space("medium")
 st.header("all outages", anchor=False)
+st.caption("Goal 1 · when did reactors go offline?")
 TIPS = {
     "generator_name": "Plant + unit number, e.g. DARLINGTON-G4 = Darlington unit 4.",
     "plant": "Bruce, Darlington or Pickering.",
@@ -627,6 +646,7 @@ st.dataframe(
 # --- One outage up close ---
 st.space("medium")
 st.header("outage explorer", anchor=False)
+st.caption("Goal 1 · one outage up close")
 st.caption("Pick an outage. The boxes summarise it; the chart shows that reactor from "
            "3 days before it went off to 7 days after it came back.")
 
@@ -704,6 +724,7 @@ st.caption(
 # --- This outage's effect on the grid (queries 10, 12, 14) ---
 st.space("medium")
 st.subheader("what this outage did to the grid", anchor=False)
+st.caption("Goals 2, 3 and 4 · for this one outage")
 
 
 def this_outage(df):
@@ -805,6 +826,7 @@ st.markdown(
 # --- Findings across all hours (queries 09, 11, 13) ---
 st.space("medium")
 st.header("findings across every hour", anchor=False)
+st.caption("Goals 2 to 5 · across every hour since May 2019")
 st.markdown(
     "One outage at a time is noisy. These findings use **every hour since May 2019** instead: each hour is "
     "compared with what's usual for its own month, and the hours are sorted by how much nuclear power was "
@@ -838,6 +860,7 @@ energy_all = query("09").set_index("nuclear_level")
 eb = energy_all.loc["below monthly average"]
 st.space("medium")
 st.subheader("1 · energy: what replaces the missing power", anchor=False)
+st.caption("Goal 2 · what filled the gap?")
 st.markdown(
     f"When nuclear runs **{-eb.nuclear_vs_usual_mw:,.0f} MW below** its average for that month, Ontario's other plants make "
     f"**{eb.non_nuclear_vs_usual_mw:+,.0f} MW** (mostly gas, **{eb.gas_vs_usual_mw:+,.0f} MW**), net imports are "
@@ -881,6 +904,7 @@ price_all = query("11").set_index("nuclear_level")
 pb = price_all.loc["below monthly average"]
 st.space("medium")
 st.subheader("2 · price: does electricity get more expensive?", anchor=False)
+st.caption("Goal 3 · did prices go up?")
 st.markdown(
     f"Yes, a little. In hours when nuclear capability is **{-pb.nuclear_capability_vs_usual_mw:,.0f} MW below** its "
     f"average for that month, the wholesale price is **{pb.price_vs_usual_cad_mwh:+.2f} \\$/MWh** compared with that "
@@ -919,6 +943,7 @@ cb = co2_all.loc["below monthly average"]
 factor = con.sql("SELECT value, low, high, source FROM assumptions WHERE name = 'gas_emissions_factor'").df().iloc[0]
 st.space("medium")
 st.subheader("3 · CO2: how much extra pollution?", anchor=False)
+st.caption("Goal 4 · how much extra CO2?")
 st.markdown(
     f"When nuclear is **{-cb.nuclear_capability_vs_usual_mw:,.0f} MW below** its average for that month, gas runs "
     f"**{cb.gas_vs_usual_mw:+,.0f} MW** above its own average for that month, releasing about **{cb.extra_co2_t_per_h:,.0f} t of extra CO2 every hour** "
@@ -948,6 +973,7 @@ with st.expander("How to read this"):
 # 4. Goal 5, milestone 1 (queries 15-21)
 st.space("medium")
 st.subheader("4 · reactor behaviour: what were the reactors doing?", anchor=False)
+st.caption("Goal 5 · what were the reactors doing? (in progress)")
 st.markdown(
     "I sorted every hour of every Ontario reactor since May 2019 into **\"running normally\"**, **\"off\"**, "
     "**\"partly running\"** or **\"could run but made less\"**, grouped those hours into events, and used them to "
