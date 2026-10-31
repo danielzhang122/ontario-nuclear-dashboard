@@ -24,7 +24,7 @@ This project takes every hour of Ontario's public electricity data since May 201
 - **Years of history, not a live snapshot:** hourly data from May 2019 to September 2026
 - **Finds the outages itself** from the raw data, instead of relying on announcements
 - **Conclusions, not just charts:** things you can state, like "Darlington 4's refurbishment added about 64,000 tonnes of CO2 in its first two weeks"
-- **Explains itself:** every chart and number on the dashboard is written for someone who's never heard of a megawatt, with a Definitions tab for every term
+- **Explains itself:** every chart and number on the dashboard is written for someone who's never heard of a megawatt, with tabs for how the grid works (Core concepts), what each word means (Key terms) and where every fact comes from (References)
 - **Honest about limits:** it says what hourly data can't tell you, and keeps "likely" separate from "confirmed"
 
 ## Progress
@@ -32,6 +32,7 @@ This project takes every hour of Ontario's public electricity data since May 201
 - [x] **Goal 1:** find every outage (206 outages of a day or longer)
 - [x] **Goal 2:** what filled the gap, overall and for each outage
 - [x] **Goal 3:** the effect on prices
+- [ ] **Goal 3.5 (backlog):** why outages raise prices so little (about \$4/MWh). Explanations to test: the price is set by the last plant needed, not by nuclear's own cost; other sources fill the gap; when outages happen and how high demand is; Ontario exporting less; most of the cost being paid outside the hourly price (the Global Adjustment); and whether bigger outages raise prices disproportionately
 - [x] **Goal 4:** the extra CO2
 - [ ] **Goal 5:** what the reactors themselves were doing. Milestone 1 is done: every hour of every reactor is labelled "running normally", "off", "partly running" or "could run but made less", which shows how often reactors go down, how long outages last and how they run in between
 - [x] **Goal 6:** the [dashboard](https://nuclear-dashboard.streamlit.app/)

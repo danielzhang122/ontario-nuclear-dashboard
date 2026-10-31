@@ -3,7 +3,7 @@ DARLINGTON-G2,refurbishment,2016-10-01,2020-06-01,https://www.cnsc-ccsn.gc.ca/en
 DARLINGTON-G3,refurbishment,2020-07-01,2023-07-18,https://world-nuclear-news.org/Articles/Second-refurbished-Darlington-reactor-back-online,start = CNSC planned window Q3 2020; end = grid reconnection
 DARLINGTON-G1,refurbishment,2022-02-01,2024-11-01,https://www.world-nuclear-news.org/articles/darlington-1-refurbishment-on-target-for-early-completion,month precision (Feb 2022 to Nov 2024)
 DARLINGTON-G4,refurbishment,2023-07-01,2026-03-13,https://www.opg.com/story/darlington-nuclears-unit-4-returns-to-service-marking-completion-of-refurbishment-project/,start month only; end = OPG announcement of 100% power
-BRUCEB-G6,refurbishment,2020-01-01,2023-09-08,https://www.brucepower.com/2023/09/08/bruce-powers-unit-6-connected-to-ontarios-electricity-grid-following-major-component-replacement-outage/,Major Component Replacement; start month only; end = grid connection
+BRUCEB-G6,refurbishment,2020-01-01,2023-09-08,https://www.world-nuclear-news.org/Articles/Bruce-6-back-on-the-grid-after-refurbishment,Major Component Replacement; start month only; end = grid connection
 BRUCEA-G3,refurbishment,2023-03-01,2026-06-04,https://www.world-nuclear-news.org/articles/renewed-bruce-3-back-in-service,Major Component Replacement; start month only; end = grid synchronization
 BRUCEA-G4,refurbishment,2025-02-01,,https://www.brucepower.com/2025/09/02/bruce-powers-unit-4-major-component-replacement-hits-key-project-milestone-transitions-to-removal-and-replacement-series/,Major Component Replacement; still in progress
 PICKERINGA-G1,permanent_shutdown,2024-09-30,,https://www.world-nuclear-news.org/articles/opg-says-goodbye-to-pickering-4,placed in safe storage
