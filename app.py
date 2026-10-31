@@ -2,6 +2,7 @@ import datetime as dt
 import re
 import runpy
 from pathlib import Path
+from urllib.parse import urlparse
 
 import altair as alt
 import duckdb
@@ -10,22 +11,155 @@ import streamlit as st
 
 st.set_page_config(page_title="ontario nuclear outages", layout="wide")
 
-# Every term the dashboard uses, in plain words: (group, term, meaning).
-DEFINITIONS = [
+# Every outside source the project relies on, defined once: key -> (group, short label, title, url, what it backs up).
+# The References tab lists them all; src() puts a short link next to a claim anywhere else on the site.
+SOURCES = {
+    "gen_report": ("Data", "IESO", "IESO: Generator Output and Capability report",
+                   "https://reports-public.ieso.ca/public/GenOutputCapabilityMonth/",
+                   "Hourly output and capability of every generator of 20 MW or more, May 2019 to Sep 2026. "
+                   "Almost every number on the dashboard comes from it."),
+    "intertie_report": ("Data", "IESO", "IESO: Intertie Schedule and Flow report",
+                        "https://reports-public.ieso.ca/public/IntertieScheduleFlowYear/",
+                        "Hourly imports and exports with Ontario's neighbours."),
+    "hoep_report": ("Data", "IESO", "IESO: Hourly Ontario Energy Price (HOEP) report",
+                    "https://reports-public.ieso.ca/public/PriceHOEPPredispOR/",
+                    "Hourly wholesale price in the old market, until April 2025."),
+    "ozp_report": ("Data", "IESO", "IESO: Day-ahead Ontario zonal price report",
+                   "https://reports-public.ieso.ca/public/DAHourlyOntarioZonalPrice/",
+                   "Hourly wholesale price in the new market, from 31 July 2026 (IESO keeps about 90 days online)."),
+    "ieso_markets": ("How the market works", "IESO", "IESO: Introduction to Ontario's Physical Markets (training guide, 2005)",
+                     "https://www.oeb.ca/documents/msp/consultation_introontariophysicalmkts.pdf",
+                     "How the price is set: offers are stacked from cheapest to most expensive, the last one needed sets "
+                     "the price, and every generator is paid that same price. Offers are based on the cost of making one "
+                     "more MWh, which is mostly fuel. Also: electricity can't be stored in bulk, so supply must match use "
+                     "at every moment."),
+    "ieso_ontario_price": ("How the market works", "IESO", "IESO: Understanding the Ontario Price",
+                           "https://ieso.ca/-/media/Files/IESO/Document-Library/learn/understanding-the-ontario-price.pdf",
+                           "The new market price replaced the HOEP. The hourly market price covers only part of the cost of "
+                           "electricity; the Global Adjustment covers the rest, including building and maintaining power plants."),
+    "ieso_ga": ("How the market works", "IESO", "IESO: Global Adjustment",
+                "https://ieso.ca/Power-Data/Price-Overview/Global-Adjustment",
+                "What the Global Adjustment pays for, and why it goes up when the market price goes down."),
+    "ieso_mrp": ("How the market works", "IESO", "IESO: Market Renewal Program",
+                 "https://www.ieso.ca/Sector-Participants/Market-Operations/Marketplace-Training/MRP-Training-Materials",
+                 "Ontario's new market went live on 1 May 2025."),
+    "cns_basics": ("Reactors", "CNS", "Canadian Nuclear Society: Basics of nuclear",
+                   "https://cns-snc.ca/learn-nuclear/basics-of-nuclear/",
+                   "How a reactor makes electricity: splitting atoms releases heat, the heat makes steam, the steam spins "
+                   "a turbine, and the turbine drives a generator."),
+    "wna_economics": ("Reactors", "WNA", "World Nuclear Association: Economics of nuclear power",
+                      "https://world-nuclear.org/information-library/economic-aspects/economics-of-nuclear-power",
+                      "Nuclear plants are expensive to build but cheap to run: fuel is a small share of their cost."),
+    "wnn_darlington": ("Reactors", "WNN", "World Nuclear News: OPG gets go-ahead for Darlington refurbishment (2016)",
+                       "https://world-nuclear-news.org/articles/opg-gets-go-ahead-for-darlington-refurbishment",
+                       "A refurbishment lets a reactor run for about another 30 years."),
+    "ieso_2018": ("Reactors", "IESO", "IESO: 2018 year-end data",
+                  "https://ieso.ca/Corporate-IESO/Media/Year-End-Data/2018",
+                  "Bruce Power can cut each reactor's output by about 300 MW when Ontario has more power than it needs."),
+    "opg_esg": ("Emissions", "OPG", "Ontario Power Generation: 2021 ESG report",
+                "https://www.opg.com/wp-content/uploads/2022/08/OPG_ESG_Report_2021_FINAL-ua.pdf",
+                "The emissions factor used for gas plants: 450 g of CO2 per kWh, which is 0.45 t per MWh."),
+    "unece": ("Emissions", "UNECE", "UNECE: Life Cycle Assessment of Electricity Generation Options (2021)",
+              "https://unece.org/sites/default/files/2021-11/LCA_final.pdf",
+              "Gas combined-cycle plants release about 0.40 to 0.51 t of CO2 per MWh over their life, and nuclear about "
+              "0.005 t. The top of the range used here (0.55) is an allowance for older, less efficient gas plants."),
+    "oeb_home": ("Everyday comparisons", "OEB", "Ontario Energy Board: electricity prices news release (2019)",
+                 "https://www.oeb.ca/node/2419",
+                 "A typical Ontario household uses 700 kWh a month: about 1 kW on average, so 1 MW is roughly 1,000 homes."),
+    "epa_car": ("Everyday comparisons", "EPA", "US EPA: Greenhouse gas emissions from a typical passenger vehicle",
+                "https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle",
+                "A typical car releases about 4.6 t of CO2 a year."),
+}
+
+
+def src(key):
+    _, label, _, url, _ = SOURCES[key]
+    return f"([{label}]({url}))"
+
+
+# How things work, in plain words: (title, explanation). Shown on the Core concepts tab.
+CONCEPTS = [
+    ("Supply must meet demand, every second",
+     "Electricity can't be stored in bulk, so the grid has to make exactly as much as people use, every moment "
+     f"{src('ieso_markets')}. Think of a bathtub that must stay at the same level: whatever drains out (people using "
+     "power) has to be poured back in at the same time.\n\n"
+     "So when a reactor stops, one of three things has to happen: other plants make more, Ontario buys more from its "
+     "neighbours (or sells them less), or Ontario uses less. Section 1 of the dashboard measures how much of each."),
+    ("How a nuclear reactor makes electricity",
+     "A reactor is a heat source. Uranium atoms split (*fission*) and release heat. The heat boils water into steam, "
+     f"the steam spins a turbine, and the turbine drives a generator {src('cns_basics')}. Like a kettle whose steam "
+     "turns a fan, at enormous scale.\n\n"
+     "Reactors are expensive to build but cheap to run, because their fuel is a small part of their cost "
+     f"{src('wna_economics')}. So once built, they run at full power around the clock. That steady, always-on supply "
+     "is called *baseload*. Section 4 of the dashboard shows how much of the time Ontario's reactors actually do."),
+    ("Why reactors go offline",
+     "- **Planned maintenance:** inspections and repairs scheduled in advance, often for weeks.\n"
+     "- **Unexpected (forced) outages:** something goes wrong and the reactor is shut down.\n"
+     "- **Refurbishment:** a rebuild of the reactor's core parts that takes years and lets it run for about another "
+     f"30 years {src('wnn_darlington')}. In this data, all four Darlington reactors and two Bruce reactors finish one, and more are underway.\n"
+     "- **Permanent shutdown:** retired for good, like Pickering units 1 and 4 in 2024.\n\n"
+     "Public data shows *when* a reactor was off, not *why*, so this project can only label refurbishments and "
+     "shutdowns that were publicly announced. Everything else is labelled \"other\"."),
+    ("How Ontario's electricity price is set",
+     "Every hour, power plants offer electricity at a price: \"I'll make 100 MW if I get at least 25 dollars per "
+     "MWh.\" The grid operator (IESO) lines the offers up from cheapest to most expensive and accepts them in that "
+     "order until there's enough to meet demand. **The last offer needed sets the price, and every plant is paid that "
+     f"same price** {src('ieso_markets')}. This line-up is called the *merit order*.\n\n"
+     "Plants base their offers on what it costs them to make one more MWh, which is mostly fuel "
+     f"{src('ieso_markets')}. Nuclear fuel is cheap {src('wna_economics')}, so reactors sit at the cheap end of the "
+     "line and are rarely the last offer needed. When a reactor goes offline, the line has to reach further up, to "
+     "pricier plants, so the price should rise. The dashboard's price section measures by how much.\n\n"
+     "**Two markets.** Until April 2025 the hourly price was the *HOEP*. Ontario's new market went live on 1 May 2025 "
+     f"{src('ieso_mrp')}, and its price is the *day-ahead Ontario zonal price* {src('ieso_ontario_price')}."),
+    ("Why the market price isn't the whole cost",
+     "The hourly market price covers only part of the cost of electricity. The rest is the *Global Adjustment*, "
+     f"which pays for building and maintaining power plants and for energy-efficiency programs "
+     f"{src('ieso_ontario_price')}. The two move in opposite directions: when the market price goes down, the "
+     f"Global Adjustment goes up {src('ieso_ga')}.\n\n"
+     "Most of a reactor's cost is building and maintaining it, not fuel, and that cost is paid outside the hourly "
+     "price. This may be part of why outages move the hourly price so little, but this project hasn't tested that "
+     "yet (it's Goal 3.5 in the README)."),
+    ("Trading with neighbours",
+     "Ontario's grid is connected to Québec, New York, Michigan, Manitoba and Minnesota by power lines called "
+     f"*interties* {src('ieso_markets')}. Power can flow either way. Ontario usually sells more than it buys. So "
+     "when a reactor goes offline, the easiest change is often to **sell less**, rather than buy more. In this data, "
+     "about two thirds of the extra \"net imports\" during outages is Ontario exporting less."),
+    ("How this project finds outages",
+     "IESO reports, for every reactor and every hour, how much it *could* make (capability) and how much it *did* "
+     "make (output). An hour counts as **off** when capability is 0. Back-to-back off hours are grouped together, "
+     "and any group lasting **24 hours or more** is one outage. If its dates overlap a publicly announced "
+     "refurbishment or shutdown, it gets that label; otherwise it's \"other\".\n\n"
+     "Capability is used instead of output because output can also be low for reasons other than a breakdown, for "
+     "example Bruce turning its reactors down on nights with surplus power."),
+    ("How the comparisons work",
+     "- **Each hour vs. its own month's average.** To take seasons out, each hour is compared with the average hour "
+     "of the same month, like comparing your July electricity bill with your average July bill, not with January's.\n"
+     "- **Before vs. during.** For a single outage: the 14 days just before it, compared with its first 14 days.\n"
+     "- **Average vs. middle value.** The average adds everything up and divides; the middle value (median) is the one "
+     "in the middle when you line them up. A few huge values pull the average but not the middle value.\n"
+     "- **Linked, not proven.** Two things happening together doesn't mean one caused the other. A heat wave can "
+     "raise prices whatever the reactors are doing, so every finding here is a link, not proof."),
+]
+
+# What each word means, in plain words: (group, term, meaning). Shown on the Key terms tab.
+KEY_TERMS = [
     ("Electricity basics", "Electricity grid",
      "The network of power plants, power lines and users. Ontario's grid is run by the IESO."),
     ("Electricity basics", "Power (MW, megawatt)",
      "How fast electricity is being made or used right now, like the speed on a speedometer. "
-     "1 MW = 1,000 kW = 1,000,000 W. A kettle uses about 1.5 kW; 1 MW is roughly 1,000 homes on average."),
+     "1 MW = 1,000 kW = 1,000,000 W. A kettle uses about 1.5 kW; 1 MW is roughly 1,000 homes on average "
+     f"{src('oeb_home')}."),
     ("Electricity basics", "Energy (MWh, megawatt-hour)",
      "Power over time, like distance = speed × time. 800 MW for one hour = 800 MWh."),
+    ("Electricity basics", "MW vs. MWh",
+     "MW is a rate (how fast), MWh is an amount (how much). A reactor running at 880 MW for a whole day makes "
+     "880 × 24 = 21,120 MWh."),
     ("Electricity basics", "GWh, TWh",
      "Bigger energy units. 1 GWh = 1,000 MWh; 1 TWh = 1,000 GWh. One reactor at full power makes about 20 GWh a day."),
     ("Electricity basics", "Demand",
      "How much electricity Ontario is using in a given hour: everything it generates plus net imports."),
-    ("Electricity basics", "Supply must equal demand",
-     "The grid has to make exactly as much power as people use, every second. If a reactor stops, something else "
-     "must make more, more must be imported, or less must be used."),
+    ("Electricity basics", "Baseload",
+     "Power that runs steadily around the clock, like nuclear. The opposite of plants that turn on only when needed."),
     ("Electricity basics", "Surplus power",
      "Hours when Ontario can make more power than it needs, usually at night, especially in spring."),
     ("Trade", "Interties",
@@ -36,27 +170,32 @@ DEFINITIONS = [
     ("Trade", "Net imports",
      "Imports minus exports. Ontario usually exports, so net imports going up mostly means it sold less."),
     ("Prices", "Wholesale price ($/MWh)",
-     "What electricity trades for on the grid each hour, in dollars per MWh. Not your home bill, which is mostly "
-     "fixed rates and charges."),
+     "What electricity trades for on the grid each hour, in dollars per MWh. Not your home bill, which also pays "
+     f"the Global Adjustment and other charges {src('ieso_ontario_price')}."),
+    ("Prices", "Merit order",
+     f"The line-up of power plants' offers from cheapest to most expensive, used to decide which plants run {src('ieso_markets')}."),
+    ("Prices", "Marginal price (market clearing price)",
+     "The price of the last, most expensive offer needed to meet demand. Every plant running that hour is paid it "
+     f"{src('ieso_markets')}."),
+    ("Prices", "Global Adjustment",
+     "The part of the cost of electricity that isn't in the hourly price: it pays for building and maintaining "
+     f"power plants and energy-efficiency programs. It goes up when the market price goes down {src('ieso_ga')}."),
     ("Prices", "HOEP",
      "Hourly Ontario Energy Price: the wholesale price in Ontario's old market, used here until April 2025."),
     ("Prices", "Day-ahead Ontario zonal price",
-     "The wholesale price in Ontario's new market, used here from 31 July 2026. No public prices exist for the "
-     "months in between."),
+     f"The wholesale price in Ontario's new market (live since 1 May 2025 {src('ieso_mrp')}), used here from "
+     "31 July 2026. No public prices exist for the months in between."),
     ("Reactors and plants", "Reactor (unit)",
      "One reactor with its own turbine and generator. Each one can be switched off while the others keep running."),
     ("Reactors and plants", "Plant (station)",
-     "A site with several reactors: Bruce (8), Darlington (4) and Pickering (6, two of them retired in 2026)."),
+     "A site with several reactors: Bruce (8), Darlington (4) and Pickering (6, two of them shut down for good in 2024)."),
     ("Reactors and plants", "Unit names",
      "Plant + unit number. DARLINGTON-G4 = Darlington unit 4. BRUCEA / BRUCEB and PICKERINGA / PICKERINGB are "
      "two halves of the same site."),
     ("Reactors and plants", "Fleet",
      "All of Ontario's nuclear reactors together (18 in this data)."),
-    ("Reactors and plants", "How a reactor makes electricity",
-     "Uranium atoms split (fission) and release heat. The heat boils water into steam, the steam spins a turbine, "
-     "and the turbine spins a generator."),
     ("Reactors and plants", "Refurbishment",
-     "A planned rebuild of a reactor that takes years and adds about 30 years to its life."),
+     f"A planned rebuild of a reactor that takes years and lets it run for about another 30 years {src('wnn_darlington')}."),
     ("Reactors and plants", "Permanent shutdown",
      "A reactor retired for good (Pickering units 1 and 4 in this data)."),
     ("Outages", "Outage",
@@ -74,6 +213,9 @@ DEFINITIONS = [
     ("Capacity words", "Full power (rating)",
      "The most a reactor can make. Here: the highest capability it reported over roughly its last month of running, "
      "because reactors get upgraded (Bruce 1 went from 779 MW to 828 MW)."),
+    ("Capacity words", "Capacity factor",
+     "How much a plant actually made over a period, divided by what it would have made at full power the whole "
+     "time. A reactor that was off for a month of the year has a lower capacity factor than one that ran all year."),
     ("Reactor labels (section 4)", "Running normally",
      "Making about what it said it could, close to full power."),
     ("Reactor labels (section 4)", "Off",
@@ -96,16 +238,12 @@ DEFINITIONS = [
     ("Other power sources", "Biofuel / other",
      "Small plants burning wood waste and similar fuels. A tiny share in Ontario."),
     ("Pollution", "CO2",
-     "Carbon dioxide, the main gas behind climate change. Running reactors make almost none; gas plants do."),
+     f"Carbon dioxide, the main gas behind climate change. Running reactors make almost none; gas plants do {src('unece')}."),
     ("Pollution", "Tonne (t)",
-     "1,000 kg. A typical car releases a few tonnes of CO2 a year."),
+     f"1,000 kg. A typical car releases about 4.6 t of CO2 a year {src('epa_car')}."),
     ("Pollution", "Emissions factor",
-     "How much CO2 one MWh of gas power releases. Used here: 0.45 t per MWh (range 0.40 to 0.55), from OPG."),
-    ("How the numbers are made", "That month's average",
-     "What's normal for that month: comparing each hour with its own month takes out the effect of seasons, like "
-     "comparing your July bill with your average July bill."),
-    ("How the numbers are made", "Before / during windows",
-     "For one outage: the 14 days just before it, compared with its first 14 days."),
+     f"How much CO2 one MWh of gas power releases. Used here: 0.45 t per MWh {src('opg_esg')}, range 0.40 to 0.55 "
+     f"{src('unece')}."),
     ("How the numbers are made", "Average vs. typical (median)",
      "The average adds everything up and divides. The typical value (median) is the middle one when you line them "
      "up. A few huge values pull the average up but not the median."),
@@ -121,9 +259,6 @@ DEFINITIONS = [
     ("How the numbers are made", "Cut off by the data",
      "Events already happening when the data starts (May 2019) or still happening when it ends (Sep 2026). Their "
      "real length is longer than measured."),
-    ("How the numbers are made", "Linked, not proven",
-     "Two things happening together doesn't mean one caused the other. A heat wave can raise prices whatever "
-     "reactors are doing."),
     ("About the data", "IESO",
      "Independent Electricity System Operator: runs Ontario's grid and publishes the hourly data used here."),
     ("About the data", "EST",
@@ -137,11 +272,22 @@ def dashboard_page():
     pass   # the dashboard is the rest of this script, below
 
 
-def definitions_page():
-    st.title("definitions", anchor=False)
-    st.markdown("Every term the dashboard uses, in plain words. Type in the box to search.")
+def concepts_page():
+    st.title("core concepts", anchor=False)
+    st.markdown("How the grid, reactors and prices work: the background the dashboard builds on. "
+                "For what a word means, see **Key terms**; for where each fact comes from, see **References**.")
+    with st.container(width=1100):
+        for title, text in CONCEPTS:
+            st.subheader(title, anchor=False)
+            st.markdown(text.replace("$", "\\$"))
+
+
+def terms_page():
+    st.title("key terms", anchor=False)
+    st.markdown("Every word the dashboard uses, in plain words. Type in the box to search. "
+                "For how things work, see **Core concepts**.")
     search = st.text_input("Search", placeholder="e.g. interties, capability, MWh", label_visibility="collapsed")
-    terms = pd.DataFrame(DEFINITIONS, columns=["Topic", "Term", "What it means"])
+    terms = pd.DataFrame(KEY_TERMS, columns=["Topic", "Term", "What it means"])
     if search:
         terms = terms[terms.apply(lambda row: search.lower() in " ".join(row).lower(), axis=1)]
     with st.container(width=1100):
@@ -153,11 +299,36 @@ def definitions_page():
             st.caption("No matching terms.")
 
 
-# Two pages as tabs along the top. The definitions page needs no data, so it stops before the database loads.
+def references_page():
+    st.title("references", anchor=False)
+    st.markdown("Every outside source this project uses, and what each one backs up. Numbers that come from the "
+                "data itself are worked out in the [SQL files](https://github.com/danielzhang122/ontario-nuclear-dashboard/tree/main/queries).")
+    with st.container(width=1100):
+        groups = list(dict.fromkeys(group for group, *_ in SOURCES.values()))
+        for group in groups:
+            st.subheader(group, anchor=False)
+            rows = "".join(f"| [{title}]({url}) | {used} |\n"
+                           for g, _, title, url, used in SOURCES.values() if g == group)
+            st.markdown("| Source | Used for |\n|---|---|\n" + rows)
+        # Read straight from the file the outage labels come from, so this list can't drift from it.
+        refurb = pd.read_csv("reference/refurbishments.csv")
+        st.subheader("Refurbishment and shutdown dates", anchor=False)
+        st.markdown("Collected by hand in [reference/refurbishments.csv](https://github.com/danielzhang122/"
+                    "ontario-nuclear-dashboard/blob/main/reference/refurbishments.csv) and used to label outages.")
+        rows = "".join(
+            f"| {r.generator_name} | {r.kind.replace('_', ' ')} | {r.start_date} to "
+            f"{'still off' if pd.isna(r.end_date) else r.end_date} | [{urlparse(r.source).netloc.removeprefix('www.')}]({r.source}) |\n"
+            for r in refurb.itertuples())
+        st.markdown("| Reactor | Type | Dates | Source |\n|---|---|---|---|\n" + rows)
+
+
+# Four pages as tabs along the top. Only the dashboard needs the database, so the others stop before it loads.
 page = st.navigation([st.Page(dashboard_page, title="Dashboard", default=True),
-                      st.Page(definitions_page, title="Definitions")], position="top")
+                      st.Page(concepts_page, title="Core concepts"),
+                      st.Page(terms_page, title="Key terms"),
+                      st.Page(references_page, title="References")], position="top")
 page.run()
-if page.title == "Definitions":
+if page.title != "Dashboard":
     st.stop()
 
 # Chart colours must read on both themes: switching theme doesn't rerun this script, so nothing here
@@ -257,13 +428,14 @@ st.title("ontario nuclear outages", anchor=False)
 st.markdown(
     "I've spent 10+ months as an intern helping build tooling for the Pickering nuclear refurbishment, "
     "which got me curious about how much Ontario's grid leans on nuclear, and what happens when a reactor "
-    "goes offline. Like any completely well-adjusted and mentally sane person, I started teaching myself SQL, data "
-    "analytics, and quantitative research just to figure this out.\n\n"
+    "goes offline. So, to figure this out, I did what any perfectly reasonable, well-adjusted person would do: "
+    "I taught myself SQL, data analytics and quantitative research.\n\n"
     "This page is as much my notes as it is for you, so expect a bit of redundancy. "
     "In nuclear, that's called *defence in depth*.\n\n"
     "More of what I build: [zhangdz.ca](https://zhangdz.ca)"
 )
-st.caption("Light or dark mode: menu at the top right → Settings. Unfamiliar word? See the Definitions tab at the top.")
+st.caption("Light or dark mode: menu at the top right → Settings. New to this? The tabs at the top explain how the "
+           "grid works (Core concepts), what each word means (Key terms) and where every fact comes from (References).")
 # Off: headings are plain text. On: each gets Streamlit's hover link icon, for linking straight to that section.
 LINKS = None if st.toggle("Section links", help="Show a link icon on each heading, to share a link to that section.") \
     else False
@@ -280,11 +452,11 @@ with st.expander("How to read this page"):
         ["Reactors", "Power & units", "How outages are found", "Reading the chart", "Data & limits"]
     )
     with reactors:
-        st.markdown("""
+        st.markdown(f"""
 - **What a reactor does.** A nuclear reactor is a heat source. Uranium atoms split
   (*fission*) and release heat. The heat boils water into steam, the steam spins a
-  *turbine* (a big fan), and the turbine spins a *generator*, which makes electricity.
-  Think of a kettle whose steam turns a fan, at enormous scale.
+  *turbine* (a big fan), and the turbine spins a *generator*, which makes electricity
+  {src('cns_basics')}. Think of a kettle whose steam turns a fan, at enormous scale.
 - **Unit.** One reactor with its own turbine and generator. A plant holds several units,
   like a building with several ovens: one can be off while the others keep cooking.
   Names read plant + unit: `DARLINGTON-G4` = Darlington, generating unit 4.
@@ -293,10 +465,11 @@ with st.expander("How to read this page"):
   (MW is explained in the next tab).
 """)
     with power:
-        st.markdown("""
+        st.markdown(f"""
 - **Power, in MW (megawatts).** How fast electricity is being made *right now*, like the
   number on a speedometer. 1 MW = 1,000 kW (kilowatts) = 1,000,000 W (watts).
-  A kettle draws ~1.5 kW; 1 MW is roughly the average draw of 1,000 Ontario homes.
+  A kettle draws ~1.5 kW; 1 MW is roughly the average draw of 1,000 Ontario homes
+  (a typical home uses 700 kWh a month, about 1 kW on average {src('oeb_home')}).
 - **Energy, in MWh (megawatt-hours).** Power × time, like distance = speed × time.
   A reactor at 800 MW for 1 hour makes 800 MWh.
 - **Output (MW).** What the unit actually produced in that hour (its average power over the hour).
@@ -348,13 +521,13 @@ each step. For every outage, roughly 500–880 MW had to come from somewhere els
 whole length, plus the ramp-up.
 """)
     with data:
-        st.markdown("""
+        st.markdown(f"""
 - **Source:** IESO (Independent Electricity System Operator, which runs Ontario's grid),
-  public *Generator Output and Capability* report: one value per generator per hour,
-  for every generator of 20 MW or more.
+  public *Generator Output and Capability* report {src('gen_report')}: one value per generator
+  per hour, for every generator of 20 MW or more. Every source is listed on the References tab.
 - **Time:** hourly, Eastern Standard Time all year (no daylight saving shift).
   "13:00" means the hour from 13:00 to 14:00.
-- **Refurbishment:** a multi-year rebuild that extends a reactor's life by ~30 years.
+- **Refurbishment:** a multi-year rebuild that extends a reactor's life by ~30 years {src('wnn_darlington')}.
 - **Limits:** public data can't tell routine maintenance from a breakdown, so both are
   labelled *other*. Outages cut off by the start or end of the data are flagged in the table.
 """)
@@ -720,19 +893,22 @@ bars(GROUPS, [price_all.loc[lv].price_vs_usual_cad_mwh for lv in LEVELS], [ACCEN
      GROUPS_TITLE, "Price vs. that month's average ($/MWh)")
 st.caption("Each bar: the average difference from that month's average price, for one group of hours.")
 with st.expander("How to read this"):
-    st.markdown("""
+    st.markdown(f"""
 - **\\$/MWh (dollars per megawatt-hour).** The price of 1 MWh of electricity, enough to run
   roughly 1,000 Ontario homes for an hour. In this data the old market averaged about
   \\$29/MWh and the new one about \\$56/MWh.
 - **Wholesale price, not your bill.** This is what power trades for on the grid, hour by
-  hour. Your bill is mostly fixed rates and charges, so a few dollars per MWh here barely
-  reaches it.
-- **Why it rises.** The grid uses the cheapest plants first, like filling a stadium from the
-  cheapest seats up. Nuclear is among the cheapest to run. When it's missing, pricier plants
-  (gas, imports) are needed, and the last plant needed sets the price for that hour.
+  hour. It covers only part of the cost of electricity: bills also pay the *Global Adjustment*,
+  which covers building and maintaining power plants {src('ieso_ontario_price')}. So a few
+  dollars per MWh here is only part of what you pay.
+- **Why it rises.** The grid uses the cheapest offers first, like filling a stadium from the
+  cheapest seats up, and the last offer needed sets the price that every plant is paid
+  {src('ieso_markets')}. Nuclear is among the cheapest to run {src('wna_economics')}. When it's
+  missing, pricier plants (gas, imports) are needed, so the price for that hour goes up.
+  More on this in Core concepts.
 - **Two markets.** Until April 2025 the price is the HOEP (Hourly Ontario Energy Price).
-  Ontario then redesigned its market; from 31 July 2026 it's the new day-ahead Ontario zonal
-  price. There's no public price for the months in between, so those hours are skipped.
+  Ontario's new market went live on 1 May 2025 {src('ieso_mrp')}; from 31 July 2026 it's the new
+  day-ahead Ontario zonal price. There's no public price for the months in between, so those hours are skipped.
   Each month is only compared with itself, so the two markets never get mixed.
 - **Limit.** Correlation, not proof: a heat wave raises prices whatever nuclear is doing.
   Seeing the opposite in the "above" group makes the link more convincing, not certain.
@@ -756,13 +932,13 @@ st.caption(f"Extra gas output (MW) × 1 h × {factor.value} t of CO2 per MWh. "
            "Negative = less gas burned than that month's average.")
 with st.expander("How to read this"):
     st.markdown(f"""
-- **Running reactors make almost no CO2; gas plants do.** Burning natural gas to make
+- **Running reactors make almost no CO2; gas plants do** {src('unece')}. Burning natural gas to make
   electricity releases carbon dioxide (CO2), the main gas behind climate change. So when gas
   fills in for nuclear, emissions go up.
-- **t (tonne).** 1,000 kg. For scale, a typical car releases a few tonnes of CO2 a year.
+- **t (tonne).** 1,000 kg. For scale, a typical car releases about 4.6 t of CO2 a year {src('epa_car')}.
 - **Emissions factor: {factor.value} t of CO2 per MWh** (range {factor.low}–{factor.high}). Making 1 MWh with
   Ontario's gas plants releases about {factor.value} t of CO2. Efficient newer plants sit at the low end,
-  older peaking plants at the high end. Source: [OPG 2021 ESG report]({factor.source}).
+  older peaking plants at the high end. Source: [OPG 2021 ESG report]({factor.source}); range: {src('unece')}.
 - **The maths.** MW × hours = MWh, and MWh × t/MWh = t. So {cb.gas_vs_usual_mw:,.0f} MW of extra gas for one
   hour = {cb.gas_vs_usual_mw:,.0f} MWh × {factor.value} ≈ {cb.extra_co2_t_per_h:,.0f} t.
 - **Limit.** Only Ontario's own gas plants are counted. Imported power has its own emissions
@@ -836,7 +1012,8 @@ bruce_night = con.sql("""
 st.markdown("**Bruce turns down at night.** \"Could run but made less\" happens almost only at Bruce, mostly between "
             "midnight and 4 a.m., mostly in May and June, and much more in 2019–2020 than since. That fits Bruce "
             "lowering output at night when Ontario has more power than it needs (spring runoff fills the dams and "
-            "few people are using power). The data shows *when* it happens, not *why*, so this is a likely "
+            "few people are using power). Bruce can cut each reactor by about 300 MW at times like that "
+            f"{src('ieso_2018')}. The data shows *when* it happens, not *why*, so this is a likely "
             "explanation, not a proven one.")
 with st.container(horizontal_alignment="center"):
     st.altair_chart(style(
