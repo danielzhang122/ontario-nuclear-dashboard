@@ -23,7 +23,7 @@ This project takes every hour of Ontario's public electricity data since May 201
 
 - **Years of history, not a live snapshot:** hourly data from May 2019 to September 2026
 - **Finds the outages itself** from the raw data, instead of relying on announcements
-- **Conclusions, not just charts:** things you can state, like "Darlington 4's refurbishment added about 64,000 tonnes of CO2 in its first two weeks"
+- **Conclusions, not just charts:** things you can state, like "Darlington 4's refurbishment was linked with about 64,000 extra tonnes of CO2 in its first two weeks, as gas covered the lost output"
 - **Explains itself:** every chart and number on the dashboard is written for someone who's never heard of a megawatt, with tabs for how the grid works (Core concepts), what each word means (Key terms) and where every fact comes from (References)
 - **Honest about limits:** it says what hourly data can't tell you, and keeps "likely" separate from "confirmed"
 
@@ -38,7 +38,7 @@ This project takes every hour of Ontario's public electricity data since May 201
 - [x] **Goal 6:** the [dashboard](https://nuclear-dashboard.streamlit.app/)
 - [ ] **Goal 7 (maybe):** update the data automatically every day
 
-Coming next in Goal 5: how quickly reactors get back to full power after an outage, telling planned shutdowns apart from unexpected ones (using public records from OPG, Bruce Power and the IESO), and whether several reactors at the same plant tend to go down together.
+Coming next in Goal 5: how quickly reactors get back to full power after an outage, telling planned shutdowns apart from unexpected ones (using public records from OPG, Bruce Power and the IESO), whether several reactors at the same plant tend to go down together, and whether outages can be predicted before they happen (for example from warning signs like a reactor running at reduced power in the days before).
 
 ## How it's built
 

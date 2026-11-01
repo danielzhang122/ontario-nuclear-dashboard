@@ -10,6 +10,14 @@ import pandas as pd
 import streamlit as st
 
 st.set_page_config(page_title="ontario nuclear outages", layout="wide")
+# Everything you can click turns the accent red on hover: links, tabs, expanders, buttons, pills, menus and inputs.
+# Anchors leave room for the top bar when a link jumps to them.
+st.html("""<style>
+a:hover, a:hover *, summary:hover, summary:hover *, button:hover, button:hover *,
+[role="tab"]:hover, [role="tab"]:hover *, [role="option"]:hover, [role="option"]:hover * { color: #e5484d !important; }
+button:hover, [data-baseweb="select"]:hover > div, [data-baseweb="input"]:hover { border-color: #e5484d !important; }
+.anchor { scroll-margin-top: 5rem; }
+</style>""")
 
 # Every outside source the project relies on, defined once: key -> (group, short label, title, url, what it backs up).
 # The References tab lists them all; src() puts a short link next to a claim anywhere else on the site.
@@ -69,6 +77,7 @@ SOURCES = {
     "epa_car": ("Everyday comparisons", "EPA", "US EPA: Greenhouse gas emissions from a typical passenger vehicle",
                 "https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle",
                 "A typical car releases about 4.6 t of CO2 a year."),
+
 }
 
 
@@ -99,7 +108,9 @@ CONCEPTS = [
      f"30 years {src('wnn_darlington')}. In this data, all four Darlington reactors and two Bruce reactors finish one, and more are underway.\n"
      "- **Permanent shutdown:** retired for good, like Pickering units 1 and 4 in 2024.\n\n"
      "Public data shows *when* a reactor was off, not *why*, so this project can only label refurbishments and "
-     "shutdowns that were publicly announced. Everything else is labelled \"other\"."),
+     "shutdowns that were publicly announced. Everything else is labelled \"other\". That gap is exactly what Goal 5 "
+     "is working on: why reactors go offline, what patterns might explain it, and whether outages can be predicted "
+     "before they happen."),
     ("How Ontario's electricity price is set",
      "Every hour, power plants offer electricity at a price: \"I'll make 100 MW if I get at least 25 dollars per "
      "MWh.\" The grid operator (IESO) lines the offers up from cheapest to most expensive and accepts them in that "
@@ -320,6 +331,64 @@ def references_page():
             f"{'still off' if pd.isna(r.end_date) else r.end_date} | [{urlparse(r.source).netloc.removeprefix('www.')}]({r.source}) |\n"
             for r in refurb.itertuples())
         st.markdown("| Reactor | Type | Dates | Source |\n|---|---|---|---|\n" + rows)
+     
+
+        st.subheader("What the data means and why we need it", anchor=False)
+        st.markdown("Each source answers one question the others can't. If one is missing, a claim on the dashboard "
+                    "can look right but be wrong.\n\n"
+                    "- **Generator output and capability (IESO, hourly):** *output* is how many megawatts (MW) a plant "
+                    "actually made that hour. *Capability* is how many MW it said it could make. We need both: a reactor "
+                    "with zero output and zero capability was off. One that could run but didn't is a different case.\n"
+                    "- **Hourly prices (IESO):** what the grid paid per megawatt-hour (MWh) each hour. We need them to see "
+                    "whether an outage pushed prices up.\n"
+                    "- **Global Adjustment (IESO):** an extra charge on electricity bills that pays for building and keeping "
+                    "power plants running. Prices alone don't show the full cost of nuclear, so we need this to count it.\n"
+                    "- **Imports and exports (IESO, hourly):** electricity moving across the borders with neighbouring "
+                    "provinces and states. When a reactor stops, Ontario may buy power from neighbours. Without this data, "
+                    "the dashboard would wrongly credit all the replacement power to Ontario's own plants.\n"
+                    "- **Refurbishment and shutdown dates (collected by hand):** the rebuilds and retirements that were "
+                    "publicly announced. The IESO data shows when a reactor was off, not why. These dates are the only way "
+                    "to label some outages as planned or permanent.\n"
+                    "- **Emissions factors (OPG and UNECE):** how much carbon dioxide (CO2) a gas plant releases per MWh, "
+                    "and how little a nuclear plant does. We need these to turn \"gas plants made the missing power\" into "
+                    "a tonnes-of-CO2 figure.\n"
+                    "- **Everyday comparisons (OEB and EPA):** how much a typical household uses in a month and how much a "
+                    "typical car emits in a year. They turn large numbers into things you can picture.")
+        st.subheader("Development Process & AI Transparency", anchor=False)
+
+
+        st.markdown("""
+        As a Mechatronics Engineering student, most of my programming experience has
+        been in embedded systems and hardware-related applications, with relatively
+        little exposure to SQL or data analytics through my coursework. This project
+        gives me an opportunity to explore those areas while building an informative,
+        accessible platform that helps people better understand nuclear energy.
+
+        I took a hands-on approach to the
+        [SQL queries](https://github.com/danielzhang122/ontario-nuclear-dashboard/tree/main/queries)
+        and data analysis, writing and working through queries independently wherever
+        possible. Being relatively new to SQL, I used Claude primarily as a learning
+        tool. It helped break down problems into plain-language steps and pseudocode
+        before I attempted the implementation myself. When I got stuck, Claude explained
+        unfamiliar concepts, reviewed my code, or helped with sections I couldn't yet
+        write independently.
+
+        Claude also contributed significantly to front-end development, code formatting,
+        testing, and validation. For more advanced analyses, particularly
+        [Milestone 5 in the reports](https://github.com/danielzhang122/ontario-nuclear-dashboard/tree/main/reports),
+        I had Claude generate both the code and detailed technical reports explaining
+        the methodology, queries, assumptions, and results. Rather than treating
+        AI-generated code as a black box, I wanted to be able to read through the
+        implementation, understand the reasoning behind it, and learn techniques
+        beyond what I could currently accomplish independently.
+
+        Ultimately, my goal is to create a useful resource for exploring nuclear
+        energy while expanding my own technical knowledge. AI is a valuable development
+        tool, but understanding the underlying concepts, critically evaluating the
+        results, and gradually becoming more independent are just as important to me
+        as the finished product.
+        """)
+
 
 
 # Four pages as tabs along the top. Only the dashboard needs the database, so the others stop before it loads.
@@ -434,17 +503,35 @@ st.markdown(
     "In nuclear, that's called *defence in depth*.\n\n"
     "More of what I build: [zhangdz.ca](https://zhangdz.ca)"
 )
-st.caption("Light or dark mode: menu at the top right → Settings. New to this? The tabs at the top explain how the "
-           "grid works (Core concepts), what each word means (Key terms) and where every fact comes from (References).")
-# Off: headings are plain text. On: each gets Streamlit's hover link icon, for linking straight to that section.
-LINKS = None if st.toggle("Section links", help="Show a link icon on each heading, to share a link to that section.") \
-    else False
+st.caption("The tabs at the top explain how the grid works (Core concepts), what each word means (Key terms) and where every fact comes from (References).")
 st.markdown(
     "Ontario gets much of its electricity from **18 nuclear reactors** at three plants: "
     "Bruce, Darlington and Pickering. This page finds every time one of them was switched off "
-    f"for **24 hours or more** between May 2019 and September 2026 (**{len(outages)} outages**), "
+    f"for 24 hours or more between May 2019 and September 2026 ({len(outages)} outages), "
     "and shows what each reactor did before, during and after."
 )
+
+# --- The project's goals, and where each one shows up on this page (same list as the README) ---
+st.markdown('<div id="project-goals" class="anchor"></div>', unsafe_allow_html=True)
+with st.expander("Project goals"):
+    st.markdown("""
+This project is built as a list of goals, each answering one question. The small grey tag under
+each heading below says which goal that part of the page belongs to. Click a place in the last column to jump
+to it, and click a grey tag to come back here. (Goals 6 and 7 are left out:
+they're about building and running this website, not questions about the grid.)
+
+| Goal | Question | Status | Where on this page |
+|---|---|---|---|
+| 1 | When did reactors go offline? | Done | [All outages](#all-outages), [Outage explorer](#outage-explorer) |
+| 2 | What filled the gap? | Done | [1 · energy](#energy) |
+| 3 | Did prices go up? | Done | [2 · price](#price) |
+| 3.5 | Why did prices go up so little? | Backlog | (not yet) |
+| 4 | How much extra CO2? | Done | [3 · CO2](#co2) |
+| 5 | What were the reactors themselves doing, and can outages be predicted? | In progress | [4 · reactor behaviour](#reactor-behaviour) |
+
+Goals 2, 3 and 4 are also shown for one outage at a time, in
+[what this outage did to the grid](#outage-grid).
+""")
 
 # --- The guide: depth for whoever wants it, out of the way for whoever doesn't ---
 with st.expander("How to read this page"):
@@ -534,7 +621,8 @@ whole length, plus the ramp-up.
 
 # --- Daily energy by plant, plus totals ---
 st.space("medium")
-st.header("nuclear generation over time", anchor=LINKS)
+st.header("nuclear generation over time", anchor=False)
+st.caption("Background")
 
 
 @st.cache_data
@@ -593,7 +681,9 @@ st.caption(
 
 # --- Every outage ---
 st.space("medium")
-st.header("all outages", anchor=LINKS)
+st.markdown('<div id="all-outages" class="anchor"></div>', unsafe_allow_html=True)
+st.header("all outages", anchor=False)
+st.caption("[Goal 1](#project-goals)", help="Back to the project goals table")
 TIPS = {
     "generator_name": "Plant + unit number, e.g. DARLINGTON-G4 = Darlington unit 4.",
     "plant": "Bruce, Darlington or Pickering.",
@@ -627,7 +717,9 @@ st.dataframe(
 
 # --- One outage up close ---
 st.space("medium")
-st.header("outage explorer", anchor=LINKS)
+st.markdown('<div id="outage-explorer" class="anchor"></div>', unsafe_allow_html=True)
+st.header("outage explorer", anchor=False)
+st.caption("[Goal 1](#project-goals)", help="Back to the project goals table")
 st.caption("Pick an outage. The boxes summarise it; the chart shows that reactor from "
            "3 days before it went off to 7 days after it came back.")
 
@@ -704,7 +796,9 @@ st.caption(
 
 # --- This outage's effect on the grid (queries 10, 12, 14) ---
 st.space("medium")
-st.subheader("what this outage did to the grid", anchor=LINKS)
+st.markdown('<div id="outage-grid" class="anchor"></div>', unsafe_allow_html=True)
+st.subheader("what this outage did to the grid", anchor=False)
+st.caption("[Goals 2, 3 and 4](#project-goals)", help="Back to the project goals table")
 
 
 def this_outage(df):
@@ -805,7 +899,9 @@ st.markdown(
 
 # --- Findings across all hours (queries 09, 11, 13) ---
 st.space("medium")
-st.header("findings across every hour", anchor=LINKS)
+st.markdown('<div id="findings" class="anchor"></div>', unsafe_allow_html=True)
+st.header("findings across every hour", anchor=False)
+st.caption("[Goals 2 to 5](#project-goals)", help="Back to the project goals table")
 st.markdown(
     "One outage at a time is noisy. These findings use **every hour since May 2019** instead: each hour is "
     "compared with what's usual for its own month, and the hours are sorted by how much nuclear power was "
@@ -838,7 +934,9 @@ GROUPS_TITLE = "Hours grouped by nuclear"
 energy_all = query("09").set_index("nuclear_level")
 eb = energy_all.loc["below monthly average"]
 st.space("medium")
-st.subheader("1 · energy: what replaces the missing power", anchor=LINKS)
+st.markdown('<div id="energy" class="anchor"></div>', unsafe_allow_html=True)
+st.subheader("1 · energy: what replaces the missing power", anchor=False)
+st.caption("[Goal 2](#project-goals)", help="Back to the project goals table")
 st.markdown(
     f"When nuclear runs **{-eb.nuclear_vs_usual_mw:,.0f} MW below** its average for that month, Ontario's other plants make "
     f"**{eb.non_nuclear_vs_usual_mw:+,.0f} MW** (mostly gas, **{eb.gas_vs_usual_mw:+,.0f} MW**), net imports are "
@@ -881,7 +979,9 @@ with st.expander("How to read this"):
 price_all = query("11").set_index("nuclear_level")
 pb = price_all.loc["below monthly average"]
 st.space("medium")
-st.subheader("2 · price: does electricity get more expensive?", anchor=LINKS)
+st.markdown('<div id="price" class="anchor"></div>', unsafe_allow_html=True)
+st.subheader("2 · price: does electricity get more expensive?", anchor=False)
+st.caption("[Goal 3](#project-goals)", help="Back to the project goals table")
 st.markdown(
     f"Yes, a little. In hours when nuclear capability is **{-pb.nuclear_capability_vs_usual_mw:,.0f} MW below** its "
     f"average for that month, the wholesale price is **{pb.price_vs_usual_cad_mwh:+.2f} \\$/MWh** compared with that "
@@ -919,7 +1019,9 @@ co2_all = query("13").set_index("nuclear_level")
 cb = co2_all.loc["below monthly average"]
 factor = con.sql("SELECT value, low, high, source FROM assumptions WHERE name = 'gas_emissions_factor'").df().iloc[0]
 st.space("medium")
-st.subheader("3 · CO2: how much extra pollution?", anchor=LINKS)
+st.markdown('<div id="co2" class="anchor"></div>', unsafe_allow_html=True)
+st.subheader("3 · CO2: how much extra pollution?", anchor=False)
+st.caption("[Goal 4](#project-goals)", help="Back to the project goals table")
 st.markdown(
     f"When nuclear is **{-cb.nuclear_capability_vs_usual_mw:,.0f} MW below** its average for that month, gas runs "
     f"**{cb.gas_vs_usual_mw:+,.0f} MW** above its own average for that month, releasing about **{cb.extra_co2_t_per_h:,.0f} t of extra CO2 every hour** "
@@ -948,7 +1050,9 @@ with st.expander("How to read this"):
 
 # 4. Goal 5, milestone 1 (queries 15-21)
 st.space("medium")
-st.subheader("4 · reactor behaviour: what were the reactors doing?", anchor=LINKS)
+st.markdown('<div id="reactor-behaviour" class="anchor"></div>', unsafe_allow_html=True)
+st.subheader("4 · reactor behaviour: what were the reactors doing?", anchor=False)
+st.caption("[Goal 5](#project-goals)", help="Back to the project goals table")
 st.markdown(
     "I sorted every hour of every Ontario reactor since May 2019 into **\"running normally\"**, **\"off\"**, "
     "**\"partly running\"** or **\"could run but made less\"**, grouped those hours into events, and used them to "
@@ -1048,5 +1152,5 @@ with st.expander("How this was worked out"):
 """)
 
 st.markdown("**Still to come:** how quickly reactors get back to full power after an outage, telling planned "
-            "shutdowns apart from unexpected ones, and whether several reactors at the same plant tend to go down "
-            "together.")
+            "shutdowns apart from unexpected ones, whether several reactors at the same plant tend to go down "
+            "together, and predicting outages before they happen.")
