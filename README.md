@@ -23,7 +23,7 @@ This project takes every hour of Ontario's public electricity data since May 201
 
 - **Years of history, not a live snapshot:** hourly data from May 2019 to September 2026
 - **Finds the outages itself** from the raw data, instead of relying on announcements
-- **Conclusions, not just charts:** things you can state, like "Darlington 4's refurbishment added about 64,000 tonnes of CO2 in its first two weeks"
+- **Conclusions, not just charts:** things you can state, like "Darlington 4's refurbishment was linked with about 64,000 extra tonnes of CO2 in its first two weeks, as gas covered the lost output"
 - **Explains itself:** every chart and number on the dashboard is written for someone who's never heard of a megawatt, with tabs for how the grid works (Core concepts), what each word means (Key terms) and where every fact comes from (References)
 - **Honest about limits:** it says what hourly data can't tell you, and keeps "likely" separate from "confirmed"
 

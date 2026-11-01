@@ -77,6 +77,7 @@ SOURCES = {
     "epa_car": ("Everyday comparisons", "EPA", "US EPA: Greenhouse gas emissions from a typical passenger vehicle",
                 "https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle",
                 "A typical car releases about 4.6 t of CO2 a year."),
+
 }
 
 
@@ -330,6 +331,64 @@ def references_page():
             f"{'still off' if pd.isna(r.end_date) else r.end_date} | [{urlparse(r.source).netloc.removeprefix('www.')}]({r.source}) |\n"
             for r in refurb.itertuples())
         st.markdown("| Reactor | Type | Dates | Source |\n|---|---|---|---|\n" + rows)
+     
+
+        st.subheader("What the data means and why we need it", anchor=False)
+        st.markdown("Each source answers one question the others can't. If one is missing, a claim on the dashboard "
+                    "can look right but be wrong.\n\n"
+                    "- **Generator output and capability (IESO, hourly):** *output* is how many megawatts (MW) a plant "
+                    "actually made that hour. *Capability* is how many MW it said it could make. We need both: a reactor "
+                    "with zero output and zero capability was off. One that could run but didn't is a different case.\n"
+                    "- **Hourly prices (IESO):** what the grid paid per megawatt-hour (MWh) each hour. We need them to see "
+                    "whether an outage pushed prices up.\n"
+                    "- **Global Adjustment (IESO):** an extra charge on electricity bills that pays for building and keeping "
+                    "power plants running. Prices alone don't show the full cost of nuclear, so we need this to count it.\n"
+                    "- **Imports and exports (IESO, hourly):** electricity moving across the borders with neighbouring "
+                    "provinces and states. When a reactor stops, Ontario may buy power from neighbours. Without this data, "
+                    "the dashboard would wrongly credit all the replacement power to Ontario's own plants.\n"
+                    "- **Refurbishment and shutdown dates (collected by hand):** the rebuilds and retirements that were "
+                    "publicly announced. The IESO data shows when a reactor was off, not why. These dates are the only way "
+                    "to label some outages as planned or permanent.\n"
+                    "- **Emissions factors (OPG and UNECE):** how much carbon dioxide (CO2) a gas plant releases per MWh, "
+                    "and how little a nuclear plant does. We need these to turn \"gas plants made the missing power\" into "
+                    "a tonnes-of-CO2 figure.\n"
+                    "- **Everyday comparisons (OEB and EPA):** how much a typical household uses in a month and how much a "
+                    "typical car emits in a year. They turn large numbers into things you can picture.")
+        st.subheader("Development Process & AI Transparency", anchor=False)
+
+
+        st.markdown("""
+        As a Mechatronics Engineering student, most of my programming experience has
+        been in embedded systems and hardware-related applications, with relatively
+        little exposure to SQL or data analytics through my coursework. This project
+        gives me an opportunity to explore those areas while building an informative,
+        accessible platform that helps people better understand nuclear energy.
+
+        I took a hands-on approach to the
+        [SQL queries](https://github.com/danielzhang122/ontario-nuclear-dashboard/tree/main/queries)
+        and data analysis, writing and working through queries independently wherever
+        possible. Being relatively new to SQL, I used Claude primarily as a learning
+        tool. It helped break down problems into plain-language steps and pseudocode
+        before I attempted the implementation myself. When I got stuck, Claude explained
+        unfamiliar concepts, reviewed my code, or helped with sections I couldn't yet
+        write independently.
+
+        Claude also contributed significantly to front-end development, code formatting,
+        testing, and validation. For more advanced analyses, particularly
+        [Milestone 5 in the reports](https://github.com/danielzhang122/ontario-nuclear-dashboard/tree/main/reports),
+        I had Claude generate both the code and detailed technical reports explaining
+        the methodology, queries, assumptions, and results. Rather than treating
+        AI-generated code as a black box, I wanted to be able to read through the
+        implementation, understand the reasoning behind it, and learn techniques
+        beyond what I could currently accomplish independently.
+
+        Ultimately, my goal is to create a useful resource for exploring nuclear
+        energy while expanding my own technical knowledge. AI is a valuable development
+        tool, but understanding the underlying concepts, critically evaluating the
+        results, and gradually becoming more independent are just as important to me
+        as the finished product.
+        """)
+
 
 
 # Four pages as tabs along the top. Only the dashboard needs the database, so the others stop before it loads.
@@ -444,12 +503,11 @@ st.markdown(
     "In nuclear, that's called *defence in depth*.\n\n"
     "More of what I build: [zhangdz.ca](https://zhangdz.ca)"
 )
-st.caption("Light or dark mode: menu at the top right → Settings. New to this? The tabs at the top explain how the "
-           "grid works (Core concepts), what each word means (Key terms) and where every fact comes from (References).")
+st.caption("The tabs at the top explain how the grid works (Core concepts), what each word means (Key terms) and where every fact comes from (References).")
 st.markdown(
     "Ontario gets much of its electricity from **18 nuclear reactors** at three plants: "
     "Bruce, Darlington and Pickering. This page finds every time one of them was switched off "
-    f"for **24 hours or more** between May 2019 and September 2026 (**{len(outages)} outages**), "
+    f"for 24 hours or more between May 2019 and September 2026 ({len(outages)} outages), "
     "and shows what each reactor did before, during and after."
 )
 
