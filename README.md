@@ -9,6 +9,10 @@ This project takes every hour of Ontario's public electricity data since May 201
 ![Daily energy by plant, all nuclear and all Ontario power plants](docs/dashboard-generation.png)
 ![What replaces the missing nuclear power, and how it adds up](docs/dashboard-gap.png)
 
+I found a cool website called [GitDiagram](https://gitdiagram.com/danielzhang122/ontario-nuclear-dashboard) that visualizes this repo and makes a one-minute video tour of how it works:
+
+[![Watch a one-minute video tour of ontario-nuclear-dashboard](https://gitdiagram.com/video-badge.svg)](https://gitdiagram.com/danielzhang122/ontario-nuclear-dashboard/video)
+
 ## What it looks at
 
 1. **When do reactors go offline?** Every outage of a day or longer, for every reactor.
