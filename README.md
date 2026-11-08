@@ -11,7 +11,7 @@ This project takes every hour of Ontario's public electricity data since May 201
 
 I found a cool website called [GitDiagram](https://gitdiagram.com/danielzhang122/ontario-nuclear-dashboard) that visualizes this repo and makes a one-minute video tour of how it works:
 
-[![Watch a one-minute video tour of ontario-nuclear-dashboard](https://gitdiagram.com/video-badge.svg)](https://gitdiagram.com/danielzhang122/ontario-nuclear-dashboard/video)
+[![danielzhang122/ontario-nuclear-dashboard, explained in a one-minute video](https://gitdiagram.com/api/video/file?username=danielzhang122&repo=ontario-nuclear-dashboard&format=poster)](https://gitdiagram.com/danielzhang122/ontario-nuclear-dashboard/video)
 
 ## What it looks at
 
