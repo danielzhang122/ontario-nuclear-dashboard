@@ -3,13 +3,15 @@
 Rebuilds from scratch every run (delete + recreate), so it is always in sync with data/clean and never duplicates rows.
 Run scripts/ingest.py first.
 """
+import os
 import re
 from pathlib import Path
 
 import duckdb
 
 ROOT = Path(__file__).resolve().parent.parent
-DB = ROOT / "data" / "nuclear.duckdb"
+# The app builds its own copy under another name (see connect() in app.py), passed in through NUCLEAR_DB.
+DB = Path(os.environ.get("NUCLEAR_DB", ROOT / "data" / "nuclear.duckdb"))
 PARQUET = (ROOT / "data" / "clean" / "gen_*.parquet").as_posix()
 INTERTIES = (ROOT / "data" / "clean" / "interties_*.parquet").as_posix()
 PRICES = (ROOT / "data" / "clean" / "prices_*.parquet").as_posix()

@@ -1,4 +1,5 @@
 import datetime as dt
+import os
 import re
 import runpy
 from pathlib import Path
@@ -478,6 +479,11 @@ def sql_file(number):
 @st.cache_resource
 def connect():
     path = Path("data/nuclear.duckdb")
+    # On a fresh copy the app builds its own file under a different name. An older version of this app can still
+    # be holding data/nuclear.duckdb open in the same process, and DuckDB refuses to open one file twice.
+    if not path.exists():
+        path = Path("data/nuclear_app.duckdb").resolve()
+        os.environ["NUCLEAR_DB"] = path.as_posix()
     # The database isn't in git (too big); on a fresh copy, e.g. the hosted app, build it from data/clean.
     if not path.exists():
         runpy.run_path("scripts/build_db.py", run_name="__main__")
