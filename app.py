@@ -474,22 +474,12 @@ def sql_file(number):
     return next(Path("queries").glob(f"{number}_*.sql")).read_text(encoding="utf-8")
 
 
-# Tables the later sections need, built by scripts/build_db.py from queries 22-30.
-NEEDED_TABLES = {"unit_events", "outage_labels", "restarts", "maneuvers", "outage_features", "outage_kinds", "unit_days"}
-
-
 # Streamlit reruns this whole script on every click; caching keeps one open connection.
 @st.cache_resource
 def connect():
     path = Path("data/nuclear.duckdb")
     # The database isn't in git (too big); on a fresh copy, e.g. the hosted app, build it from data/clean.
-    # A database built before the later milestones lacks their tables: rebuild it (about 20 seconds).
-    def is_current():
-        with duckdb.connect(path.as_posix(), read_only=True) as check:
-            have = {t for (t,) in check.sql("SELECT table_name FROM duckdb_tables()").fetchall()}
-        return NEEDED_TABLES <= have
-
-    if not path.exists() or not is_current():
+    if not path.exists():
         runpy.run_path("scripts/build_db.py", run_name="__main__")
     # Read the file read-only through an in-memory database: read-only never clashes with other open
     # connections (the DuckDB CLI, or an older version of this app still running after an update).
@@ -498,6 +488,17 @@ def connect():
     tables = [t for (t,) in con.sql("SELECT table_name FROM duckdb_tables() WHERE database_name = 'src'").fetchall()]
     for table in tables:
         con.execute(f"CREATE VIEW {table} AS SELECT * FROM src.{table}")
+    # A database file built before the later milestones lacks their tables. Build the missing ones in memory
+    # instead of rebuilding the file: an older version of this app may still hold the file open, and DuckDB
+    # refuses to open one file twice in the same process.
+    if "outage_labels" not in tables:
+        con.execute("CREATE TABLE outage_labels AS SELECT * FROM 'reference/outage_labels.csv'")
+    for number, table in [("15", "unit_hours"), ("16", "unit_events"), ("22", "restarts"), ("25", "maneuvers"),
+                          ("27", "outage_features"), ("28", "outage_kinds"), ("30", "unit_days")]:
+        if table not in tables:
+            for statement in re.sub(r"--[^\n]*", "", sql_file(number)).split(";"):
+                if statement.strip().upper().startswith("CREATE"):
+                    con.execute(statement)
     return con
 
 
