@@ -560,6 +560,21 @@ st.markdown(
     "and shows what each reactor did before, during and after."
 )
 
+# --- The findings I'd point to first, each linking to its section ---
+_q = research_sections.NUMBERS["quant"]
+st.markdown(f"""
+**What I found, in four lines** (click one to jump to it):
+
+- [One hour into an outage, you can tell whether it will be a long one](#forecasts): a model scores
+  **{100 * _q['duration']['auc']:.0f}%** on years it has never seen, where 50% is a coin flip and 100% is perfect.
+- [The price is higher the day after a surprise outage](#forecasts): **{_q['price']['hit_rate']:.0f}%** of the time,
+  by about **\\${_q['price']['gain']:.0f} per MWh**. After a planned outage, barely at all.
+- [Bruce turns its reactors down in fixed steps of about 300 MW](#maneuvers) when Ontario has more power than it needs.
+- [About 1 restart in 5 goes offline again](#restarts) before the reactor is back at steady full power.
+
+And one thing that didn't work: [predicting when a reactor will go down](#prediction). Public data isn't enough.
+""")
+
 # --- The project's goals, and where each one shows up on this page (same list as the README) ---
 st.markdown('<div id="project-goals" class="anchor"></div>', unsafe_allow_html=True)
 with st.expander("Project goals"):
