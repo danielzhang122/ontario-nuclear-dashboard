@@ -17,7 +17,6 @@ from site_text import kinds_together, maneuvers, prediction, prices, restarts
 NUMBERS = json.loads(Path("reports/research_numbers.json").read_text(encoding="utf-8"))
 REPORTS = "https://github.com/danielzhang122/ontario-nuclear-dashboard/blob/main/reports/"
 PLANTS = ["Bruce", "Darlington", "Pickering"]
-PAD = {"left": 60, "right": 30, "top": 10, "bottom": 5}
 
 
 def money(value):
@@ -33,8 +32,7 @@ def heading(anchor, title, goal):
 
 
 def show(ui, chart):
-    with st.container(horizontal_alignment="center"):
-        st.altair_chart(ui.style(chart), width="content")
+    ui.figure(chart)
 
 
 def plant_colours(ui):
@@ -100,7 +98,7 @@ def render_prices(ui):
         color=alt.Color("what:N", title=None, scale=alt.Scale(domain=["Nuclear available", "Ontario demand"],
                                                               range=[ui.ACCENT, ui.DIM]),
                         legend=alt.Legend(orient="bottom")),
-    ).properties(width=560, height=240, autosize=alt.AutoSizeParams(type="pad"), padding=PAD))
+    ).properties(width=ui.CHART_W, height=240, autosize=alt.AutoSizeParams(type="pad"), padding=ui.CHART_PAD))
 
     st.markdown(t["demand"].format(**v))
     ui.bars(["Low-demand hours", "Middling-demand hours", "High-demand hours"],
@@ -158,7 +156,7 @@ def render_restarts(ui):
         x=alt.X("hours_since_restart:Q", title="Hours since the reactor came back", axis=alt.Axis(values=list(range(0, 241, 24)))),
         y=alt.Y("pct_not_back:Q", title="% of restarts not yet at steady full power"),
         color=alt.Color("grp:N", title=None, scale=plant_colours(ui), legend=alt.Legend(orient="bottom")),
-    ).properties(width=560, height=260, autosize=alt.AutoSizeParams(type="pad"), padding=PAD))
+    ).properties(width=ui.CHART_W, height=260, autosize=alt.AutoSizeParams(type="pad"), padding=ui.CHART_PAD))
 
     st.markdown(t["false_starts"].format(**v))
     st.markdown(t["by_plant"].format(**v))
@@ -170,7 +168,7 @@ def render_restarts(ui):
         color=alt.Color("plant:N", title=None, scale=plant_colours(ui), legend=alt.Legend(orient="bottom")))
     show(ui, (base.mark_area(opacity=0.15).encode(y=alt.Y("p25_pct:Q", title="Output (% of full power)"), y2="p75_pct:Q")
               + base.mark_line().encode(y="median_pct_of_full_power:Q")
-              ).properties(width=560, height=260, autosize=alt.AutoSizeParams(type="pad"), padding=PAD))
+              ).properties(width=ui.CHART_W, height=260, autosize=alt.AutoSizeParams(type="pad"), padding=ui.CHART_PAD))
 
     st.markdown(t["hold_points"].format(**v))
     show(ui, alt.Chart(holds).mark_bar().encode(
@@ -179,7 +177,7 @@ def render_restarts(ui):
         y=alt.Y("pct_of_climb_hours:Q", title="% of climbing hours"),
         color=alt.Color("plant:N", scale=plant_colours(ui), legend=None),
         row=alt.Row("plant:N", title=None, header=alt.Header(labelFontSize=14, labelOrient="top", labelAnchor="start")),
-    ).properties(width=560, height=110).resolve_scale(y="independent"))
+    ).properties(width=ui.CHART_W, height=110).resolve_scale(y="independent"))
 
     st.markdown(t["cost"].format(**v))
     how(t["how"], v, "goal5_milestone2.md")
@@ -218,21 +216,21 @@ def render_maneuvers(ui):
                 axis=alt.Axis(labelAngle=0)),
         y=alt.Y("pct_of_reactor_hours:Q", title="% of turned-down reactor-hours"),
         color=alt.condition(alt.datum.mw_below_offer == 300, alt.value(ui.ACCENT), alt.value(ui.DIM)),
-    ).properties(width=560, height=220, autosize=alt.AutoSizeParams(type="pad"), padding=PAD))
+    ).properties(width=ui.CHART_W, height=220, autosize=alt.AutoSizeParams(type="pad"), padding=ui.CHART_PAD))
 
     st.markdown(t["together"].format(**v))
     show(ui, alt.Chart(together).mark_bar(color=ui.DIM).encode(
         x=alt.X("reactors_turned_down_together:O", title="Reactors turned down at the same time",
                 axis=alt.Axis(labelAngle=0)),
         y=alt.Y("gwh_not_made:Q", title="Energy given up (GWh)"),
-    ).properties(width=560, height=220, autosize=alt.AutoSizeParams(type="pad"), padding=PAD))
+    ).properties(width=ui.CHART_W, height=220, autosize=alt.AutoSizeParams(type="pad"), padding=ui.CHART_PAD))
 
     st.markdown(t["conditions"].format(**v))
     st.markdown(t["fading"].format(**v))
     show(ui, alt.Chart(by_year).mark_bar(color=ui.DIM).encode(
         x=alt.X("year:O", title="Year (2019 starts in May; 2026 ends in September)", axis=alt.Axis(labelAngle=0)),
         y=alt.Y("hours:Q", title="Hours with a maneuver at Bruce"),
-    ).properties(width=560, height=220, autosize=alt.AutoSizeParams(type="pad"), padding=PAD))
+    ).properties(width=ui.CHART_W, height=220, autosize=alt.AutoSizeParams(type="pad"), padding=ui.CHART_PAD))
     how(t["how"], v, "goal5_milestone2.md")
 
 
@@ -281,13 +279,13 @@ def render_kinds(ui):
     groups["kind"] = groups.kind.map(names)
     groups["order"] = groups.kind.map({name: i for i, name in enumerate(names.values())})
     show(ui, alt.Chart(groups).mark_bar().encode(
-        y=alt.Y("plant:N", title="Plant"),
+        y=alt.Y("plant:N", title=None),
         x=alt.X("outages:Q", title="Outages of a day or longer (start seen in the data)"),
         color=alt.Color("kind:N", title=None, sort=list(names.values()),
                         scale=alt.Scale(domain=list(names.values()), range=["#3d3d3d", ui.DIM, ui.LIGHT, ui.ACCENT]),
                         legend=alt.Legend(orient="bottom", columns=2)),
         order="order:Q",
-    ).properties(width=560, height=150, autosize=alt.AutoSizeParams(type="pad"), padding=PAD))
+    ).properties(width=ui.CHART_W, height=150, autosize=alt.AutoSizeParams(type="pad"), padding=ui.CHART_PAD))
     st.markdown(t["kinds_check"].format(**v))
     how(t["kinds_how"], v, "goal5_milestone3.md")
 
@@ -313,23 +311,19 @@ def render_together(ui):
         "pairs": ["Bruce", "Darlington", "Pickering", "Same plant (all)", "Different plants"],
         "lift": [lift["Bruce"], lift["Darlington"], lift["Pickering"], n["lift_same"], n["lift_diff"]],
         "color": [ui.DIM, ui.DIM, ui.DIM, ui.ACCENT, ui.LIGHT]})
-    show(ui, (alt.Chart(lifts).mark_bar().encode(
-        y=alt.Y("pairs:N", sort=None, title="Pairs of reactors"),
+    show(ui, (alt.Chart(lifts).mark_bar(size=22).encode(
+        y=alt.Y("pairs:N", sort=None, title=None),
         x=alt.X("lift:Q", title="Hours offline together, as a multiple of coincidence (1 = coincidence)"),
         color=alt.Color("color:N", scale=None))
         + alt.Chart(pd.DataFrame({"x": [1]})).mark_rule(color=ui.LIGHT, strokeDash=[4, 4]).encode(x="x:Q")
-    ).properties(width=520, height=200, autosize=alt.AutoSizeParams(type="pad"), padding={**PAD, "left": 110}))
+    ).properties(width=ui.CHART_W, height=200, autosize=alt.AutoSizeParams(type="pad"), padding=ui.CHART_PAD))
     st.markdown(t["together_starts"].format(**v))
     st.markdown(t["together_clusters"].format(**v))
-    table = pd.DataFrame({
-        "Plant": clusters.plant,
-        "First reactor went off": pd.to_datetime(clusters.first_start).dt.strftime("%d %b %Y"),
-        "Last one went off": pd.to_datetime(clusters.last_start).dt.strftime("%d %b %Y"),
-        "Reactors": clusters.reactors,
-        "Which": clusters.which,
-        "Typical length (days)": clusters.median_days})
-    with st.container(width=900):
-        st.dataframe(table, hide_index=True)
+    day = lambda column: pd.to_datetime(column).dt.strftime("%d %b %Y")
+    rows = "".join(f"| {r.plant} | {a} | {b} | {r.reactors} | {r.which} | {r.median_days:.0f} |\n"
+                   for r, a, b in zip(clusters.itertuples(), day(clusters.first_start), day(clusters.last_start)))
+    st.markdown("| Plant | First reactor off | Last reactor off | Reactors | Which | Typical length (days) |\n"
+                "|---|---|---|---|---|---|\n" + rows)
     how(t["together_how"], v, "goal5_milestone4.md")
 
 
@@ -362,12 +356,11 @@ def render_prediction(ui):
     st.markdown(t["intro"].format(**v))
     st.markdown(t["signs"].format(**v))
     ordered = signs.sort_values("times_more_likely", ascending=False)
-    show(ui, (alt.Chart(ordered).mark_bar(color=ui.DIM).encode(
-        y=alt.Y("warning_sign:N", sort=None, title="Warning sign",
-                axis=alt.Axis(titlePadding=10 + 4 * ordered.warning_sign.str.len().max())),
+    show(ui, (alt.Chart(ordered).mark_bar(color=ui.DIM, size=22).encode(
+        y=alt.Y("warning_sign:N", sort=None, title=None),
         x=alt.X("times_more_likely:Q", title="Times more likely to start an outage within 7 days (1 = no difference)"))
         + alt.Chart(pd.DataFrame({"x": [1]})).mark_rule(color=ui.ACCENT, strokeDash=[4, 4]).encode(x="x:Q")
-    ).properties(width=480, height=34 * len(ordered), autosize=alt.AutoSizeParams(type="pad"), padding=PAD))
+    ).properties(width=ui.CHART_W, height=34 * len(ordered), autosize=alt.AutoSizeParams(type="pad"), padding=ui.CHART_PAD))
     st.markdown(t["not_enough"].format(**v))
     st.markdown(t["model"].format(**v))
     scores = pd.concat([
@@ -380,7 +373,7 @@ def render_prediction(ui):
                                                             range=[ui.DIM, ui.ACCENT]),
                         legend=alt.Legend(orient="bottom")))
         + alt.Chart(pd.DataFrame({"y": [50]})).mark_rule(color=ui.LIGHT, strokeDash=[4, 4]).encode(y="y:Q")
-    ).properties(width=560, height=240, autosize=alt.AutoSizeParams(type="pad"), padding=PAD))
+    ).properties(width=ui.CHART_W, height=240, autosize=alt.AutoSizeParams(type="pad"), padding=ui.CHART_PAD))
     st.markdown(t["verdict"].format(**v))
     how(t["how"], v, "goal5_milestone5.md")
 

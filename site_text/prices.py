@@ -2,7 +2,7 @@
 
 TEXT = {
     "intro": (
-        "**Losing a whole reactor barely moves the wholesale price.** That sounds odd, because nuclear is "
+        "Losing a whole reactor barely moves the wholesale price. That sounds odd, because nuclear is "
         "some of the cheapest power on the grid. So I tested the possible explanations one at a time. "
         "Everything here uses the old market's price (the HOEP), May 2019 to April 2025, and each hour is "
         "compared with the average for its own month."

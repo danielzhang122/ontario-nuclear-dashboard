@@ -2,7 +2,7 @@
 
 TEXT = {
     "intro": (
-        "**Some reactors act like a volume knob, not an on/off switch.** A \"maneuver\" is a stretch of hours when "
+        "Some reactors act like a volume knob, not an on/off switch. A \"maneuver\" is a stretch of hours when "
         "one or more reactors at the same plant make clearly less than they said they could, then come back, with "
         "no outage within a day either side. I found {n_maneuvers:,.0f} of them at Bruce, "
         "adding up to {maneuver_hours:,.0f} hours. A typical one lasts about {median_h:.0f} hours "

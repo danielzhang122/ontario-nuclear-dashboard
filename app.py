@@ -434,33 +434,43 @@ DIM = "#6b6b6b"
 LIGHT = "#a3a3a3"    # the "added up" bar and the all-plants line: lighter than DIM, visible on black and white
 
 
+CHART_W = 560
+CHART_PAD = {"left": 10, "right": 30, "top": 6, "bottom": 6}
+
+
+def figure(chart):
+    # Every chart goes through here, so the gap above and below is the same everywhere.
+    st.space("small")
+    with st.container(horizontal_alignment="center"):
+        st.altair_chart(style(chart), width="content")
+    st.space("small")
+
+
 def style(chart):
-    # Larger, flat axis text than Streamlit's defaults. The monospace fallback has the same character width
-    # as IBM Plex Mono, so labels measured before the web font loads still get the right amount of room.
+    # One look for every chart: no frame, a faint grid, flat monospace axis text, the legend underneath.
+    # The monospace fallback has the same character width as IBM Plex Mono, so labels measured before the web
+    # font loads still get the right amount of room. Drawn as SVG so text stays sharp.
     mono = "IBM Plex Mono, monospace"
-    # Draw as SVG instead of a canvas bitmap, so rotated axis titles stay sharp.
-    return (chart.properties(usermeta={"embedOptions": {"renderer": "svg"}}).configure_axis(labelFont=mono, titleFont=mono, labelFontSize=14, titleFontSize=14,
-                                 labelLimit=0, titleLimit=0, titleFontWeight=600)
-            .configure_legend(labelFontSize=14, labelLimit=0))
+    return (chart.properties(usermeta={"embedOptions": {"renderer": "svg"}})
+            .configure_view(stroke=None)
+            .configure_axis(labelFont=mono, titleFont=mono, labelFontSize=13, titleFontSize=13, labelLimit=0,
+                            titleLimit=0, titleFontWeight=400, titlePadding=12, gridOpacity=0.35, domain=False,
+                            ticks=False, labelPadding=8)
+            .configure_legend(labelFont=mono, labelFontSize=13, labelLimit=0, symbolSize=80, orient="bottom")
+            .configure_header(labelFont=mono, labelFontSize=13))
 
 
 def bars(labels, values, colors, label_title, value_title):
     # Sideways bars so labels read normally, centred on the page at a fixed plot width.
-    # autosize "pad": the chart grows to fit its labels instead of squeezing the bars.
-    # Left padding: labels are measured before the web font loads, and the font is a little wider.
+    # The side title is left off: rotated, it was often longer than the chart is tall, which stretched the chart
+    # and left uneven gaps. The row labels and the sentence above the chart already say what the rows are.
     df = pd.DataFrame({"label": labels, "value": values, "color": colors})
-    chart = alt.Chart(df).mark_bar().encode(
-        # shortcut: Vega under-measures these labels (~40% in testing), so the side title gets extra padding to clear them;
-        # drop titlePadding if a Streamlit/Vega update fixes the measuring.
-        y=alt.Y("label:N", sort=None, title=label_title,
-                axis=alt.Axis(titlePadding=10 + 4 * max(len(lab) for lab in labels))),
+    chart = alt.Chart(df).mark_bar(size=22).encode(
+        y=alt.Y("label:N", sort=None, title=None),
         x=alt.X("value:Q", title=value_title, axis=alt.Axis(tickCount=6)),
         color=alt.Color("color:N", scale=None),   # each row's own hex color, used as-is
-    ).properties(width=560, height=40 * len(df), autosize=alt.AutoSizeParams(type="pad"),
-                 padding={"left": 60, "right": 30, "top": 10, "bottom": 5})
-    st.space("small")
-    with st.container(horizontal_alignment="center"):
-        st.altair_chart(style(chart), width="content")
+    ).properties(width=CHART_W, height=34 * len(df), autosize=alt.AutoSizeParams(type="pad"), padding=CHART_PAD)
+    figure(chart)
 
 
 def adds_up(parts, missing_label, missing_mw, value_title):
@@ -563,16 +573,15 @@ st.markdown(
 # --- The findings I'd point to first, each linking to its section ---
 _q = research_sections.NUMBERS["quant"]
 st.markdown(f"""
-**What I found, in four lines** (click one to jump to it):
+The short version:
 
-- [One hour into an outage, you can tell whether it will be a long one](#forecasts): a model scores
-  **{100 * _q['duration']['auc']:.0f}%** on years it has never seen, where 50% is a coin flip and 100% is perfect.
-- [The price is higher the day after a surprise outage](#forecasts): **{_q['price']['hit_rate']:.0f}%** of the time,
-  by about **\\${_q['price']['gain']:.0f} per MWh**. After a planned outage, barely at all.
+- [One hour into an outage, a model can tell whether it will be a long one](#forecasts): it scores
+  {100 * _q['duration']['auc']:.0f}% on years it has never seen, where 50% is a coin flip.
+- [The price is higher the day after a surprise outage](#forecasts): {_q['price']['hit_rate']:.0f}% of the time,
+  by about \\${_q['price']['gain']:.0f} per MWh.
 - [Bruce turns its reactors down in fixed steps of about 300 MW](#maneuvers) when Ontario has more power than it needs.
 - [About 1 restart in 5 goes offline again](#restarts) before the reactor is back at steady full power.
-
-And one thing that didn't work: [predicting when a reactor will go down](#prediction). Public data isn't enough.
+- [Predicting when a reactor will go down](#prediction) didn't work. Public data isn't enough.
 """)
 
 # --- The project's goals, and where each one shows up on this page (same list as the README) ---
@@ -1080,7 +1089,8 @@ with st.expander("How to read this"):
 
 # 2b. Goal 3.5 (query 32): the words are in site_text/, the charts in research_sections.py
 ui = SimpleNamespace(con=con, results=results, bars=bars, adds_up=adds_up, style=style, src=src,
-                     ACCENT=ACCENT, DIM=DIM, LIGHT=LIGHT)
+                     ACCENT=ACCENT, DIM=DIM, LIGHT=LIGHT, figure=figure,
+                     CHART_W=CHART_W, CHART_PAD=CHART_PAD)
 research_sections.render_prices(ui)
 
 # 3. CO2
@@ -1159,17 +1169,16 @@ lengths = pd.concat([
     pd.DataFrame({"length": bands.band.map(names), "share": bands.pct_of_events, "measure": "Share of outages"}),
     pd.DataFrame({"length": bands.band.map(names), "share": bands.pct_of_offline_hours, "measure": "Share of hours off"}),
 ])
-with st.container(horizontal_alignment="center"):
-    st.altair_chart(style(
+figure(
         alt.Chart(lengths).mark_bar().encode(
             y=alt.Y("length:N", sort=list(names.values()), title="Outage length"),
             yOffset=alt.YOffset("measure:N"),
             x=alt.X("share:Q", title="% of all outages, or of all hours off", axis=alt.Axis(tickCount=10)),
             color=alt.Color("measure:N", title=None, scale=alt.Scale(range=[DIM, ACCENT]),
                             legend=alt.Legend(orient="bottom")),
-        ).properties(width=520, height=260, autosize=alt.AutoSizeParams(type="pad"),
-                     padding={"left": 60, "right": 30, "top": 10, "bottom": 5})
-    ), width="content")
+        ).properties(width=CHART_W, height=260, autosize=alt.AutoSizeParams(type="pad"),
+                     padding=CHART_PAD)
+)
 
 st.markdown(f"**Reactors make what they say they can make.** When a reactor reports it can make, say, 800 MW, it "
             f"makes almost exactly that: **{fleet_budget.capability_utilisation_pct:.1f}%** of what was offered, "
@@ -1188,14 +1197,13 @@ st.markdown("**Bruce turns down at night.** \"Could run but made less\" happens 
             "few people are using power). Bruce can cut each reactor by about 300 MW at times like that "
             f"{src('ieso_2018')}. The data shows *when* it happens, not *why*, so this is a likely "
             "explanation, not a proven one.")
-with st.container(horizontal_alignment="center"):
-    st.altair_chart(style(
+figure(
         alt.Chart(bruce_night).mark_line(color=ACCENT, point=True).encode(
             x=alt.X("hour:O", title="Hour of the day (EST, 0 = midnight)", axis=alt.Axis(labelAngle=0)),
             y=alt.Y("pct:Q", title="% of Bruce's running hours"),
-        ).properties(width=560, height=220, autosize=alt.AutoSizeParams(type="pad"),
-                     padding={"left": 60, "right": 30, "top": 10, "bottom": 5})
-    ), width="content")
+        ).properties(width=CHART_W, height=220, autosize=alt.AutoSizeParams(type="pad"),
+                     padding=CHART_PAD)
+)
 
 with st.expander("How this was worked out"):
     st.markdown(f"""

@@ -2,7 +2,7 @@
 
 TEXT = {
     "kinds_intro": (
-        "**The data never says whether a shutdown was planned.** It only shows when a reactor went off, not why. "
+        "The data never says whether a shutdown was planned. It only shows when a reactor went off, not why. "
         "And speed doesn't help: {n_instant} of the {n_outages_seen} outages I found went from nearly full power to "
         "off within 2 hours, and that includes rebuilds announced years ahead. So I looked for other clues instead."
     ),
@@ -57,7 +57,7 @@ TEXT = {
         "label is the weakest of the three."
     ),
     "together_intro": (
-        "**When one reactor is off, is the one next to it more likely to be off too?** To judge that, I compare with "
+        "When one reactor is off, is the one next to it more likely to be off too? To judge that, I compare with "
         "\"coincidence\": two people who each take a few sick days a year will sometimes be off on the same day "
         "by chance, so reactors would overlap a little even if they had nothing to do with each other. Announced "
         "refurbishments are left out, because they are scheduled years ahead, one after another."
