@@ -2,12 +2,16 @@ import datetime as dt
 import re
 import runpy
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import urlparse
 
 import altair as alt
 import duckdb
 import pandas as pd
 import streamlit as st
+
+import research_sections
+from site_text.glossary import NEW_CONCEPTS, NEW_KEY_TERMS
 
 st.set_page_config(page_title="ontario nuclear outages", layout="wide")
 # Everything you can click turns the accent red on hover: links, tabs, expanders, buttons, pills, menus and inputs.
@@ -77,7 +81,14 @@ SOURCES = {
     "epa_car": ("Everyday comparisons", "EPA", "US EPA: Greenhouse gas emissions from a typical passenger vehicle",
                 "https://www.epa.gov/greenvehicles/greenhouse-gas-emissions-typical-passenger-vehicle",
                 "A typical car releases about 4.6 t of CO2 a year."),
-
+    "bruce_vbo": ("Outage records", "Bruce Power", "Bruce Power: Bruce B planned Vacuum Building Outage begins (2024)",
+                  "https://www.brucepower.com/?p=24915",
+                  "The April 2024 shutdown of all Bruce B reactors was a planned vacuum building outage: the "
+                  "reactors share one safety building, and inspecting it needs every connected reactor shut down."),
+    "cnsc_status": ("Outage records", "CNSC", "Canadian Nuclear Safety Commission: Status Reports on Power Reactors",
+                    "https://www.cnsc-ccsn.gc.ca/eng/the-commission/meetings/",
+                    "Presented at each Commission meeting; they say which reactors are shut down and whether the "
+                    "outage is planned or forced. Used for the small answer key of planned and forced outages."),
 }
 
 
@@ -278,6 +289,10 @@ KEY_TERMS = [
      "One number per generator per hour, for every generator of 20 MW or more, May 2019 to September 2026."),
 ]
 
+# The later milestones add their own concepts and terms (written in site_text/glossary.py).
+CONCEPTS = CONCEPTS + NEW_CONCEPTS
+KEY_TERMS = KEY_TERMS + [term for term in NEW_KEY_TERMS if term[1] not in {t for _, t, _ in KEY_TERMS}]
+
 
 def dashboard_page():
     pass   # the dashboard is the rest of this script, below
@@ -331,6 +346,17 @@ def references_page():
             f"{'still off' if pd.isna(r.end_date) else r.end_date} | [{urlparse(r.source).netloc.removeprefix('www.')}]({r.source}) |\n"
             for r in refurb.itertuples())
         st.markdown("| Reactor | Type | Dates | Source |\n|---|---|---|---|\n" + rows)
+
+        labels = pd.read_csv("reference/outage_labels.csv")
+        st.subheader("Outages that a public source calls planned or forced", anchor=False)
+        st.markdown("Collected by hand in [reference/outage_labels.csv](https://github.com/danielzhang122/"
+                    "ontario-nuclear-dashboard/blob/main/reference/outage_labels.csv). A small answer key for checking "
+                    "the planned-or-unexpected guesses, not a full list: most outages are never announced.")
+        rows = "".join(
+            f"| {r.generator_name} | {r.kind} | {r.shutdown_date} | {r.note} "
+            f"([{urlparse(r.source).netloc.removeprefix('www.')}]({r.source})) |\n"
+            for r in labels.itertuples())
+        st.markdown("| Reactor | Kind | Shutdown date | What the source says |\n|---|---|---|---|\n" + rows)
      
 
         st.subheader("What the data means and why we need it", anchor=False)
@@ -448,12 +474,22 @@ def sql_file(number):
     return next(Path("queries").glob(f"{number}_*.sql")).read_text(encoding="utf-8")
 
 
+# Tables the later sections need, built by scripts/build_db.py from queries 22-30.
+NEEDED_TABLES = {"unit_events", "outage_labels", "restarts", "maneuvers", "outage_features", "outage_kinds", "unit_days"}
+
+
 # Streamlit reruns this whole script on every click; caching keeps one open connection.
 @st.cache_resource
 def connect():
     path = Path("data/nuclear.duckdb")
     # The database isn't in git (too big); on a fresh copy, e.g. the hosted app, build it from data/clean.
-    if not path.exists():
+    # A database built before the later milestones lacks their tables: rebuild it (about 20 seconds).
+    def is_current():
+        with duckdb.connect(path.as_posix(), read_only=True) as check:
+            have = {t for (t,) in check.sql("SELECT table_name FROM duckdb_tables()").fetchall()}
+        return NEEDED_TABLES <= have
+
+    if not path.exists() or not is_current():
         runpy.run_path("scripts/build_db.py", run_name="__main__")
     # Read the file read-only through an in-memory database: read-only never clashes with other open
     # connections (the DuckDB CLI, or an older version of this app still running after an update).
@@ -462,10 +498,6 @@ def connect():
     tables = [t for (t,) in con.sql("SELECT table_name FROM duckdb_tables() WHERE database_name = 'src'").fetchall()]
     for table in tables:
         con.execute(f"CREATE VIEW {table} AS SELECT * FROM src.{table}")
-    # A database built before Goal 5 lacks the operating-state tables: build them in memory (~6 s), not in the file.
-    if "unit_events" not in tables:
-        for number in ["15", "16"]:
-            con.execute(sql_file(number))
     return con
 
 
@@ -482,6 +514,16 @@ def query(number):
 def query_all(number):
     # Files with several results: strip comments first (they can contain ';'), then run each statement.
     return [con.sql(s).df() for s in re.sub(r"--[^\n]*", "", sql_file(number)).split(";") if s.strip()]
+
+
+
+@st.cache_data
+def results(number):
+    # Like query_all, for files that also build a table (e.g. 28): the CREATE statement is skipped, because the
+    # table is already in the database, and only the result queries after it are run.
+    return [con.sql(s).df() for s in re.sub(r"--[^\n]*", "", sql_file(number)).split(";")
+            if s.strip() and not s.strip().upper().startswith("CREATE")]
+
 
 outages = con.sql("SELECT * FROM outages ORDER BY start_ts").df()
 # Full power per unit = the highest capability it ever reported (same rule as queries/06_outages.sql).
@@ -525,9 +567,9 @@ they're about building and running this website, not questions about the grid.)
 | 1 | When did reactors go offline? | Done | [All outages](#all-outages), [Outage explorer](#outage-explorer) |
 | 2 | What filled the gap? | Done | [1 · energy](#energy) |
 | 3 | Did prices go up? | Done | [2 · price](#price) |
-| 3.5 | Why did prices go up so little? | Backlog | (not yet) |
+| 3.5 | Why did prices go up so little? | Done, except the Global Adjustment | [2b · why so little](#price-why) |
 | 4 | How much extra CO2? | Done | [3 · CO2](#co2) |
-| 5 | What were the reactors themselves doing, and can outages be predicted? | In progress | [4 · reactor behaviour](#reactor-behaviour) |
+| 5 | What were the reactors themselves doing, and can outages be predicted? | Done | [4 · reactor behaviour](#reactor-behaviour), [5 · getting back to full power](#restarts), [6 · maneuvers](#maneuvers), [7 · planned or unexpected?](#planned), [8 · going down together](#together), [9 · prediction](#prediction) |
 
 Goals 2, 3 and 4 are also shown for one outage at a time, in
 [what this outage did to the grid](#outage-grid).
@@ -1014,6 +1056,11 @@ with st.expander("How to read this"):
   Seeing the opposite in the "above" group makes the link more convincing, not certain.
 """)
 
+# 2b. Goal 3.5 (query 32): the words are in site_text/, the charts in research_sections.py
+ui = SimpleNamespace(con=con, results=results, bars=bars, adds_up=adds_up, style=style, src=src,
+                     ACCENT=ACCENT, DIM=DIM, LIGHT=LIGHT)
+research_sections.render_prices(ui)
+
 # 3. CO2
 co2_all = query("13").set_index("nuclear_level")
 cb = co2_all.loc["below monthly average"]
@@ -1151,6 +1198,14 @@ with st.expander("How this was worked out"):
 - Full details, tables and the checks: [the Goal 5 report](https://github.com/danielzhang122/ontario-nuclear-dashboard/blob/main/reports/goal5_milestone1.md).
 """)
 
-st.markdown("**Still to come:** how quickly reactors get back to full power after an outage, telling planned "
-            "shutdowns apart from unexpected ones, whether several reactors at the same plant tend to go down "
-            "together, and predicting outages before they happen.")
+# 5 to 9. Goal 5, milestones 2 to 5 (queries 22-31)
+research_sections.render_restarts(ui)
+research_sections.render_maneuvers(ui)
+research_sections.render_kinds(ui)
+research_sections.render_together(ui)
+research_sections.render_prediction(ui)
+
+st.space("medium")
+st.markdown("**Still open:** what outages do to the part of the bill outside the hourly price (the Global "
+            "Adjustment), a longer answer key of planned and forced outages from the regulator's reports, and "
+            "updating the data automatically every day.")

@@ -1,0 +1,13 @@
+generator_name,shutdown_date,kind,source,note
+BRUCEA-G4,2022-09-02,planned,https://sarnianewstoday.ca/midwestern/news/2022/12/16/unit-4-returns-service-bruce-power,"Bruce Power: Unit 4 returned to service Dec 9 after a 98-day planned maintenance outage that began Sep 2"
+BRUCEB-G7,2024-04-18,planned,https://sarnianewstoday.ca/midwestern/news/2024/04/23/bruce-b-undergoing-complete-temporary-shutdown,"Unit 7 taken offline April 18 for a two-month planned outage"
+BRUCEB-G5,2024-04-24,planned,https://www.brucepower.com/?p=24915,"Bruce B Vacuum Building Outage: the other Bruce B operating units removed from service days after Unit 7; VBO started April 24 2024. Unit 8 is left out because the data shows it offline from April 18"
+BRUCEB-G6,2024-04-24,planned,https://www.brucepower.com/?p=24915,"Bruce B Vacuum Building Outage (see Unit 5 row)"
+DARLINGTON-G4,2021-10-01,planned,https://api.cnsc-ccsn.gc.ca/dms/digital-medias/CMD21-M41.pdf/object,"CNSC status report (Sep 2021): Unit 4 scheduled to start a planned outage on October 1 2021"
+BRUCEB-G8,2026-01-17,planned,https://api.cnsc-ccsn.gc.ca/dms/digital-medias/CMD26-M8-ENG.pdf/object,"CNSC status report: Unit 8 was shut down on January 17 2026 for a planned maintenance outage"
+PICKERINGB-G6,2025-09-18,planned,https://api.cnsc-ccsn.gc.ca/dms/digital-medias/CMD25-M32-Presentation-from-CNSC-Staff.pdf/object,"CNSC status report (Sep 2025): Unit 6 will shut down for a planned maintenance outage on September 18 2025"
+BRUCEA-G1,2023-09-07,forced,https://api.cnsc-ccsn.gc.ca/dms/digital-medias/CMD23-M34.pdf/object,"CNSC status report: Unit 1 was shut down on September 7 2023 due to a turbine trip (faulty limit switch)"
+BRUCEB-G8,2023-09-06,forced,https://api.cnsc-ccsn.gc.ca/dms/digital-medias/CMD23-M34.pdf/object,"CNSC status report: Unit 8 was shut down safely on September 6 2023 following a feedwater transient"
+DARLINGTON-G2,2024-10-10,forced,https://api.cnsc-ccsn.gc.ca/dms/digital-medias/CMD24-M40.pdf/object,"CNSC status report: Unit 2 was shut down on October 10 2024 for a Forced Outage due to a turbine trip from loss of excitation"
+DARLINGTON-G4,2026-04-12,forced,https://api.cnsc-ccsn.gc.ca/dms/digital-medias/CMD26-M14-ENG.pdf/object,"CNSC status report: Unit 4 taken offline on April 12 2026 (hydrogen leak into the generator stator cooling water system); listed as a forced outage"
+BRUCEB-G5,2025-09-07,forced,https://api.cnsc-ccsn.gc.ca/dms/digital-medias/CMD25-M32-Presentation-from-CNSC-Staff.pdf/object,"CNSC status report (Sep 2025): Unit 5 is shut down for a Forced Outage. The report gives the status only; the date here is the shutdown seen in the IESO data"

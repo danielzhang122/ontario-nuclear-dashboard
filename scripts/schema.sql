@@ -26,6 +26,17 @@ CREATE TABLE refurbishments (
     note           VARCHAR
 );
 
+-- Outages whose kind is stated in a public source, hand-collected in reference/outage_labels.csv.
+-- A small answer key for checking the planned-vs-unplanned guesses (queries 27-28), NOT a full list:
+-- most outages are never announced. shutdown_date is the date the source gives (local time).
+CREATE TABLE outage_labels (
+    generator_name VARCHAR NOT NULL,
+    shutdown_date  DATE NOT NULL,
+    kind           VARCHAR NOT NULL,     -- 'planned' or 'forced', in the source's own words
+    source         VARCHAR NOT NULL,     -- URL
+    note           VARCHAR               -- what the source says
+);
+
 -- One row per hour: Ontario's total trade with neighbouring grids (sum over all 14 interties).
 CREATE TABLE interties (
     timestamp      TIMESTAMP PRIMARY KEY,  -- start of the hour, Eastern Standard Time

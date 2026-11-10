@@ -1,0 +1,126 @@
+{
+ "restarts": {
+  "pct_interrupted_low": 14.8,
+  "pct_interrupted_high": 25.8,
+  "interrupted_p_bruce_vs_rest": 0.0022997700229977,
+  "logrank_plant_p": 0.011017313357825924,
+  "logrank_band_p": 0.00015997528737691174,
+  "spearman": 0.40758000955337953,
+  "spearman_low": 0.20171263315246898,
+  "spearman_high": 0.5556452187767588
+ },
+ "maneuvers": {
+  "price_diff": -3.6,
+  "price_diff_low": -4.98,
+  "price_diff_high": -2.0,
+  "demand_diff": -670.69,
+  "demand_diff_low": -868.18,
+  "demand_diff_high": -466.23,
+  "wind_diff": -221.02,
+  "exports_diff": 111.79,
+  "exports_diff_low": -0.6,
+  "exports_diff_high": 221.45
+ },
+ "kinds": {
+  "duration_p": 0.0004999500049995,
+  "season_p": 0.12998700129987
+ },
+ "together": {
+  "lift_same": 0.9914484024047852,
+  "lift_diff": 1.0790987014770508,
+  "p_same": 0.962037962037962,
+  "close_same": 21,
+  "close_diff": 20,
+  "close_null_mean": 13.222,
+  "close_p": 0.02197802197802198,
+  "n_shuffles": 1000,
+  "lift_same_low": 0.72074294090271,
+  "lift_same_high": 1.4114915132522583,
+  "close_low": 7.0,
+  "close_high": 20.0
+ },
+ "prediction": {
+  "train_score": 61.8,
+  "test_score": 51.5,
+  "test_score_low": 47.199999999999996,
+  "test_score_high": 57.199999999999996,
+  "single_sign_score": 51.4,
+  "top10_rate": 4.49,
+  "test_base_rate": 3.15,
+  "top10_caught": 14.2,
+  "split_year": 2024,
+  "n_inputs": 11,
+  "by_year": [
+   {
+    "year": 2021,
+    "train": 0.696,
+    "test": 0.575
+   },
+   {
+    "year": 2022,
+    "train": 0.684,
+    "test": 0.527
+   },
+   {
+    "year": 2023,
+    "train": 0.635,
+    "test": 0.549
+   },
+   {
+    "year": 2024,
+    "train": 0.618,
+    "test": 0.529
+   },
+   {
+    "year": 2025,
+    "train": 0.601,
+    "test": 0.501
+   },
+   {
+    "year": 2026,
+    "train": 0.594,
+    "test": 0.506
+   }
+  ]
+ },
+ "prices": {
+  "slope": 4.2,
+  "slope_low": 2.79,
+  "slope_high": 5.6,
+  "slope_min_check": 3.82,
+  "slope_max_check": 5.24,
+  "placebo": -0.2,
+  "placebo_low": -1.99,
+  "placebo_high": 1.58,
+  "events": [
+   {
+    "group": "All outages",
+    "n": 164,
+    "change": 5.47,
+    "low": 2.5,
+    "high": 8.44
+   },
+   {
+    "group": "Guessed 'likely unplanned'",
+    "n": 32,
+    "change": 10.77,
+    "low": 2.75,
+    "high": 19.93
+   },
+   {
+    "group": "Guessed 'unclear'",
+    "n": 85,
+    "change": 5.93,
+    "low": 2.07,
+    "high": 9.96
+   },
+   {
+    "group": "Guessed 'likely planned'",
+    "n": 47,
+    "change": 1.02,
+    "low": -2.96,
+    "high": 4.97
+   }
+  ]
+ }
+}
