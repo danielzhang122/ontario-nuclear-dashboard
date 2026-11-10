@@ -576,7 +576,7 @@ they're about building and running this website, not questions about the grid.)
 | 3 | Did prices go up? | Done | [2 · price](#price) |
 | 3.5 | Why did prices go up so little? | Done, except the Global Adjustment | [2b · why so little](#price-why) |
 | 4 | How much extra CO2? | Done | [3 · CO2](#co2) |
-| 5 | What were the reactors themselves doing, and can outages be predicted? | Done | [4 · reactor behaviour](#reactor-behaviour), [5 · getting back to full power](#restarts), [6 · maneuvers](#maneuvers), [7 · planned or unexpected?](#planned), [8 · going down together](#together), [9 · prediction](#prediction) |
+| 5 | What were the reactors themselves doing, and can outages be predicted? | Done | [4 · reactor behaviour](#reactor-behaviour), [5 · getting back to full power](#restarts), [6 · maneuvers](#maneuvers), [7 · planned or unexpected?](#planned), [8 · going down together](#together), [9 · prediction](#prediction), [10 · what can be forecast](#forecasts) |
 
 Goals 2, 3 and 4 are also shown for one outage at a time, in
 [what this outage did to the grid](#outage-grid).
@@ -1211,6 +1211,7 @@ research_sections.render_maneuvers(ui)
 research_sections.render_kinds(ui)
 research_sections.render_together(ui)
 research_sections.render_prediction(ui)
+research_sections.render_forecasts(ui)
 
 st.space("medium")
 st.markdown("**Still open:** what outages do to the part of the bill outside the hourly price (the Global "

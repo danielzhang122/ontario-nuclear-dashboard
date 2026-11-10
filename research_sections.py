@@ -383,3 +383,62 @@ def render_prediction(ui):
     ).properties(width=560, height=240, autosize=alt.AutoSizeParams(type="pad"), padding=PAD))
     st.markdown(t["verdict"].format(**v))
     how(t["how"], v, "goal5_milestone5.md")
+
+
+# ------------------------------------------------------------------------ what CAN be forecast (quant_models.py)
+def render_forecasts(ui):
+    q = NUMBERS["quant"]
+    d, r, p = q["duration"], q["restart"], q["price"]
+    heading("forecasts", "10 · so what can be forecast?", "Goal 5")
+    st.markdown(
+        "The section above asked *when* a reactor will go down, and the answer was that public data can't say. "
+        "So I turned the question around: start from something that has already happened, and ask what comes next. "
+        "Each model below is trained only on earlier years and scored on a year it has never seen.")
+    st.markdown(
+        f"**One hour into an outage, you can tell whether it will be a long one.** Using only what is known in that "
+        f"first hour (was the shutdown announced, did it start at night, was the reactor already off when the hour "
+        f"began, the season, the plant), a model scores **{100 * d['auc']:.0f}%** on outages it has never seen, where "
+        f"50% is a coin flip (give or take: {100 * d['auc_low']:.0f}% to {100 * d['auc_high']:.0f}%). Of the outages it "
+        f"rated most likely to be long, **{d['top_pct']:.0f}%** lasted a week or more, typically {d['top_days']:.0f} "
+        f"days. Of those it rated least likely, {d['bottom_pct']:.0f}% did, typically {d['bottom_days']:.0f} days. "
+        "It works where predicting the start failed because a planned outage announces itself in its last hour, and "
+        "planned outages are the long ones.")
+    thirds = pd.DataFrame(d["thirds"])
+    ui.bars(["Rated least likely to be long", "Middle", "Rated most likely to be long"],
+            list(thirds.lasted_a_week_or_more_pct), [ui.DIM, ui.DIM, ui.ACCENT],
+            "Model's rating", "% that went on to last a week or more")
+    st.markdown(
+        f"**After a surprise outage, the price is higher the next day, and a simple rule catches it.** The rule: one "
+        f"hour after a reactor goes offline, if it looks unplanned, expect the next 24 hours to cost more than the same "
+        f"24 hours a week earlier. Everything the rule needs is known when it fires. It fired {p['n_fire']} times "
+        f"between 2019 and April 2025. The price was higher **{p['hit_rate']:.0f}%** of those times, by an average of "
+        f"**\\${p['gain']:.2f} per MWh** (give or take: \\${p['gain_low']:.2f} to \\${p['gain_high']:.2f}). It held "
+        f"in both halves of the period (\\${p['first_half']:.2f} and \\${p['second_half']:.2f}), and firing the same "
+        "rule on random hours almost never does as well. After outages that look planned the gain is small and could be luck, "
+        "which is what you'd expect if the market has already prepared for those.")
+    table = pd.DataFrame(p["table"])
+    table = table[~table.outages.str.startswith("  ")]
+    ui.bars(["Planned", "Can't tell", "Unplanned (the rule fires)"],
+            [table.set_index("outages").loc[k, "average gain $/MWh"] for k in
+             ["Looks planned", "Can't tell", "Looks unplanned (the rule fires)"]],
+            [ui.DIM, ui.DIM, ui.ACCENT], "Outage looks",
+            "Next 24 hours vs. the same hours a week earlier ($/MWh)")
+    st.markdown(
+        f"**When a restart will finish is not really forecastable.** A model using how long the reactor was off puts "
+        f"restarts in roughly the right order, but its error is only {r['skill']:.0f}% smaller than quoting the usual "
+        f"restart time, and that could be luck (give or take: {r['skill_low']:.0f}% to {r['skill_high']:.0f}%). "
+        "I'm leaving it here as a result that didn't work.")
+    with st.expander("How this was worked out"):
+        st.markdown(f"""
+- **Trained on the past, scored on the future.** To score any year, the model learns only from the years before it.
+  The scores above pool every year scored that way ({d['n']} outages for the first model).
+- **Only what was known at the time.** The outage-length model and the price rule both use the first offline hour
+  and nothing after it. The "looks unplanned" label is the guess from section 7, which is built from that same hour.
+- **The price rule is evidence, not a trading record.** In the old market there was no way to buy the next day's
+  hourly price ahead of time. {p['n_fire']} events is also few, and a handful of large price moves carry much of the
+  average (the typical gain is smaller than the average). The new market has a day-ahead price where a rule like
+  this could be acted on, but there isn't enough public data yet to test it there.
+- **What this can't tell you.** Why an outage was long, or why the price moved. A cold snap arriving the same day as
+  an outage would look the same.
+- Full details: [the report]({REPORTS}quant_models.md).
+""")

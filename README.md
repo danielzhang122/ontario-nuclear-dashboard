@@ -38,12 +38,13 @@ I found a cool website called [GitDiagram](https://gitdiagram.com/danielzhang122
 - [x] **Goal 3:** the effect on prices
 - [x] **Goal 3.5:** why outages raise prices so little (about \$4/MWh for every 1,000 MW of nuclear missing). Tested one explanation at a time: other sources fill the gap (gas and fewer exports cover about three quarters), outages are timed for the low-demand months, the effect is a little bigger when demand is high, and bigger outages don't hurt disproportionately. Still open: the cost paid outside the hourly price (the Global Adjustment), which needs data this project doesn't have yet
 - [x] **Goal 4:** the extra CO2
-- [x] **Goal 5:** what the reactors themselves were doing, in five milestones:
+- [x] **Goal 5:** what the reactors themselves were doing, in six parts:
   1. every hour of every reactor labelled "running normally", "off", "partly running" or "could run but made less"
   2. restarts and maneuvers: half of restarts are back at steady full power within 33 hours, about 1 in 5 goes offline again first, and Bruce turns down in fixed steps of about 300 MW when Ontario has more power than it needs
   3. planned or unexpected: a careful guess from how each outage began, checked against a small answer key from public records. About half of outages stay "can't tell", on purpose
   4. going down together: reactors at the same plant are off together about as often as coincidence predicts, but a few times a whole plant shut down at once
   5. prediction: there are real warning signs, but a model built on them does no better than a coin flip on years it hasn't seen. Public hourly data isn't enough to predict outages
+  6. what *can* be forecast: one hour into an outage, a model tells long outages from short ones on years it has never seen (74%, where 50% is a coin flip), and a simple rule shows the price is higher the day after a surprise outage (72% of the time, by about \$15/MWh). Forecasting when a restart will finish didn't work
 - [x] **Goal 6:** the [dashboard](https://nuclear-dashboard.streamlit.app/)
 - [ ] **Goal 7 (maybe):** update the data automatically every day
 
@@ -59,7 +60,7 @@ IESO public data  →  Python (download and clean)  →  DuckDB database  →  S
 - **SQL ([queries/](queries/)):** I'm learning SQL as I go, so the files run from simple `SELECT`s (01) up to window functions (15, 16), a survival curve written in plain SQL (23) and line fits (32). Each file explains its steps at the top
 - **Dashboard ([app.py](app.py)):** runs the SQL files directly, so the page always matches the queries
 - **Statistics ([scripts/stats.py](scripts/stats.py)):** the parts SQL can't do (error bars, shuffle tests, a prediction model, a regression with controls), written with numpy only so the method can be read
-- **More detail:** [a plain-language guide to the milestone 1 queries](docs/milestone1_queries.md), and a report with every number and check for each part: Goal 5 milestones [1](reports/goal5_milestone1.md), [2](reports/goal5_milestone2.md), [3](reports/goal5_milestone3.md), [4](reports/goal5_milestone4.md), [5](reports/goal5_milestone5.md) and [Goal 3.5](reports/goal3_5_prices.md)
+- **More detail:** [a plain-language guide to the milestone 1 queries](docs/milestone1_queries.md), and a report with every number and check for each part: Goal 5 milestones [1](reports/goal5_milestone1.md), [2](reports/goal5_milestone2.md), [3](reports/goal5_milestone3.md), [4](reports/goal5_milestone4.md), [5](reports/goal5_milestone5.md), [the forecasting models](reports/quant_models.md) and [Goal 3.5](reports/goal3_5_prices.md)
 
 ## Run it
 
@@ -82,6 +83,7 @@ python scripts/build_db.py     # build data/nuclear.duckdb
 python tests/test_events.py    # small made-up test cases for the outage and reactor-label queries
 python scripts/goal5_report.py # regenerate the Goal 5 milestone 1 report
 python scripts/research_report.py # regenerate the milestone 2-5 and Goal 3.5 reports
+python scripts/quant_models.py   # the walk-forward forecasting models (run after research_report.py)
 duckdb -readonly data/nuclear.duckdb   # explore the database yourself
 ```
 

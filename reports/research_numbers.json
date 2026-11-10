@@ -122,5 +122,117 @@
     "high": 4.97
    }
   ]
+ },
+ "quant": {
+  "duration": {
+   "n": 143,
+   "auc": 0.7369913928012519,
+   "auc_low": 0.657375,
+   "auc_high": 0.8031277573529412,
+   "auc_step_down_alone": 0.6140453834115805,
+   "base_rate": 49.65034965034965,
+   "brier_skill": 13.89005938153175,
+   "top_pct": 79.0,
+   "bottom_pct": 27.0,
+   "top_days": 31.5,
+   "bottom_days": 4.6,
+   "thirds": [
+    {
+     "group": "lowest third",
+     "outages": 48,
+     "predicted_pct": 18,
+     "lasted_a_week_or_more_pct": 27,
+     "median_days": 4.6
+    },
+    {
+     "group": "middle third",
+     "outages": 47,
+     "predicted_pct": 52,
+     "lasted_a_week_or_more_pct": 43,
+     "median_days": 5.8
+    },
+    {
+     "group": "highest third",
+     "outages": 48,
+     "predicted_pct": 88,
+     "lasted_a_week_or_more_pct": 79,
+     "median_days": 31.5
+    }
+   ]
+  },
+  "restart": {
+   "n": 122,
+   "skill": 2.783545052172809,
+   "skill_low": -7.5700798349915335,
+   "skill_high": 10.391681967991657,
+   "median_err_h": 16.049334936020177,
+   "median_err_h_naive": 12.0,
+   "rank_corr": 0.5336080443855516,
+   "within_factor_2": 78.68852459016394,
+   "within_factor_2_naive": 72.1311475409836
+  },
+  "price": {
+   "n_fire": 32,
+   "gain": 15.080533854166667,
+   "gain_low": 6.94,
+   "gain_high": 23.25,
+   "hit_rate": 72.0,
+   "random_p": 0.0001999600079984003,
+   "random_95": 5.433884114583335,
+   "first_half": 15.49,
+   "second_half": 14.67,
+   "table": [
+    {
+     "outages": "Looks unplanned (the rule fires)",
+     "n": 32,
+     "average gain $/MWh": 15.08,
+     "95% low": 6.94,
+     "95% high": 23.25,
+     "median gain": 8.7,
+     "% of times price was higher": 72,
+     "t-statistic": 3.54
+    },
+    {
+     "outages": "  first half of the period",
+     "n": 16,
+     "average gain $/MWh": 15.49,
+     "95% low": 3.7,
+     "95% high": 27.8,
+     "median gain": 9.37,
+     "% of times price was higher": 69,
+     "t-statistic": 2.42
+    },
+    {
+     "outages": "  second half of the period",
+     "n": 16,
+     "average gain $/MWh": 14.67,
+     "95% low": 4.3,
+     "95% high": 26.43,
+     "median gain": 7.69,
+     "% of times price was higher": 75,
+     "t-statistic": 2.51
+    },
+    {
+     "outages": "Can't tell",
+     "n": 85,
+     "average gain $/MWh": 5.35,
+     "95% low": 2.39,
+     "95% high": 8.35,
+     "median gain": 2.8,
+     "% of times price was higher": 60,
+     "t-statistic": 3.47
+    },
+    {
+     "outages": "Looks planned",
+     "n": 47,
+     "average gain $/MWh": 3.12,
+     "95% low": -0.35,
+     "95% high": 6.66,
+     "median gain": 0.73,
+     "% of times price was higher": 53,
+     "t-statistic": 1.73
+    }
+   ]
+  }
  }
 }
